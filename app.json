@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "FlowDesk",
+    "slug": "flowdesk-mobile",
+    "scheme": "flowdesk",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.flowdeskmobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.flowdeskmobile"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-router",
+      "expo-splash-screen",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#283889",
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use your camera to photograph clearance receipts.",
+          "photosPermission": "Allow $(PRODUCT_NAME) to attach receipt photos to your clearances.",
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "https://dt-externalproxy-1.etl.co.ls/etl/flowdesk/uat"
+    }
+  }
+}
