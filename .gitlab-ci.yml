@@ -53,6 +53,9 @@ check:
     - npm ci --no-audit --no-fund
     - npx tsc --noEmit
     - npx expo lint
+    # Bundle the JS like a release build does - catches bundler-only errors
+    # (e.g. SDK 56 rejecting @react-navigation imports) before a tag is cut.
+    - npx expo export --platform android --output-dir /tmp/flowdesk-export-$CI_JOB_ID && rm -rf /tmp/flowdesk-export-$CI_JOB_ID
 
 build_apk:
   stage: build

@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from "expo-router/react-navigation";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import UnlockPanel from "@/components/UnlockPanel";
