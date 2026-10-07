@@ -1,0 +1,80 @@
+# FlowDesk mobile - GitLab CI/CD
+#
+# Runs on the "flowdesk build runner" (shell executor on dt-devops-1,
+# 10.3.10.48), which has Node 22, JDK 17 and the Android SDK in
+# /opt/android-sdk.
+#
+# - Every push / merge request: typecheck + lint.
+# - Tag vX.Y.Z (e.g. `git tag v1.0.1 && git push origin v1.0.1`):
+#   build the release APK, keep it as a pipeline artifact, and upload it to
+#   the FlowDesk portal ("Get the App" then serves it).
+# - On main, a manual "build_apk" button builds a test APK without uploading.
+#
+# CI/CD variables to set in GitLab (Settings > CI/CD > Variables, masked +
+# protected): FLOWDESK_ADMIN_EMAIL, FLOWDESK_ADMIN_PASSWORD (an ADMIN account).
+
+stages:
+  - check
+  - build
+  - publish
+
+variables:
+  ANDROID_HOME: /opt/android-sdk
+  ANDROID_SDK_ROOT: /opt/android-sdk
+  JAVA_HOME: /usr/lib/jvm/java-17-openjdk
+  # The runner shares the GitLab server: cap Gradle so a build can't starve GitLab.
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.jvmargs=-Xmx3g"
+  NODE_OPTIONS: "--max-old-space-size=2048"
+  # The runner is on the internal network, so upload straight to the UAT
+  # backend instead of through the proxies (whose body-size limits are lower
+  # than the ~80 MB APK).
+  FLOWDESK_API_URL: "http://10.3.10.59:4000"
+
+default:
+  before_script:
+    # dt-devops-1 injects a Datadog agent into every JVM via JAVA_TOOL_OPTIONS.
+    # The JVM then prints "Picked up JAVA_TOOL_OPTIONS" to stderr, and the
+    # Android Gradle Plugin's prefab step fails on any stderr output - so the
+    # build JVMs must run without it.
+    - unset JAVA_TOOL_OPTIONS
+
+.release_tag: &release_tag
+  if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+
+check:
+  stage: check
+  script:
+    - npm ci --no-audit --no-fund
+    - npx tsc --noEmit
+    - npx expo lint
+
+build_apk:
+  stage: build
+  rules:
+    - *release_tag
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+      allow_failure: true
+  script:
+    - npm ci --no-audit --no-fund
+    - if [ -n "$CI_COMMIT_TAG" ]; then node scripts/set-version.mjs "${CI_COMMIT_TAG#v}"; fi
+    - export APP_VERSION=$(node -p "require('./app.json').expo.version")
+    - CI=1 npx expo prebuild --platform android --clean --no-install
+    - cd android && ./gradlew app:assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a && cd ..
+    - cp android/app/build/outputs/apk/release/app-release.apk "flowdesk-mobile-${APP_VERSION}.apk"
+    - echo "APP_VERSION=${APP_VERSION}" > build.env
+  artifacts:
+    name: "flowdesk-mobile-$CI_COMMIT_REF_NAME"
+    paths:
+      - flowdesk-mobile-*.apk
+    reports:
+      dotenv: build.env
+    expire_in: 30 days
+
+publish_apk:
+  stage: publish
+  needs: [build_apk]
+  rules:
+    - *release_tag
+  script:
+    - node scripts/upload-build.mjs --file "flowdesk-mobile-${APP_VERSION}.apk" --version "${APP_VERSION}"
