@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "@/context/auth-context";
+import { useUnlockMethod } from "@/lib/biometrics";
 import { colors, radii, spacing } from "@/theme";
 
 export default function LoginScreen() {
@@ -9,6 +10,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const method = useUnlockMethod();
 
   async function handleSubmit() {
     if (!email.trim() || !password) {
@@ -61,7 +63,11 @@ export default function LoginScreen() {
           <Text style={styles.buttonLabel}>{submitting ? "Signing in…" : "Sign In"}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.hint}>First sign-in on this device. Next time, you&apos;ll unlock with Face ID or your passcode instead.</Text>
+        <Text style={styles.hint}>
+          {method?.kind === "none"
+            ? "Set up a screen lock on this phone and FlowDesk will unlock with it next time."
+            : `First sign-in on this device. Next time, you'll unlock with your ${method?.label ?? "fingerprint or PIN"} instead.`}
+        </Text>
       </View>
 
       <Text style={styles.disclaimer}>This is a secure system. Unauthorised access is prohibited.</Text>

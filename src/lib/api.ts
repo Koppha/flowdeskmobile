@@ -94,7 +94,10 @@ export type CustomRequestInboxItem = {
   current_step_actionable_by_me?: boolean;
 };
 
-export type InboxItem = AdvanceInboxItem | ClaimInboxItem | CustomRequestInboxItem;
+export type InboxItem = (AdvanceInboxItem | ClaimInboxItem | CustomRequestInboxItem) & {
+  submitted_at?: string | null;
+  created_at?: string | null;
+};
 
 export const api = {
   login: (email: string, password: string) =>
@@ -105,6 +108,7 @@ export const api = {
   myAdvances: () => req("/advances?mine=true"),
   myClearances: () => req("/claims?mine=true"),
   advanceDetail: (id: string) => req(`/advances/${id}`),
+  advanceHistory: (id: string) => req(`/advances/${id}/history`),
   claimDetail: (id: string) => req(`/claims/${id}`),
 
   approveAdvance: (id: string, approved_total: number, comments?: string) =>

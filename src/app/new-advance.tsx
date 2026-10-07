@@ -18,9 +18,11 @@ import {
   PATTERNS,
   RESERVED_TYPES,
   SOUTH_AFRICA_PROVINCES,
+  BACKDATE_GRACE_DAYS,
   addDays,
   canRequestForSelf,
   daysInclusive,
+  earliestTripDate,
   eligibleBeneficiaries,
   fmtMoney,
   isPermanent,
@@ -317,6 +319,8 @@ export default function NewAdvanceScreen() {
   // --- Validate & submit ---
   function validate(): string[] {
     const e: string[] = [];
+    const earliest = earliestTripDate();
+    const tooOld = `can't be more than ${BACKDATE_GRACE_DAYS} days in the past.`;
     if (!typeCode) e.push("Choose an advance type.");
     if (purpose.trim().length < 5) e.push("Describe the purpose (at least 5 characters).");
     if (isExternal) {
@@ -324,12 +328,14 @@ export default function NewAdvanceScreen() {
       if (!(toNumber(otherAmount) > 0)) e.push("Enter the amount.");
       if (!otherStart || !otherEnd) e.push("Enter the start and finish dates.");
       else if (otherEnd < otherStart) e.push("The finish date can't be before the start date.");
+      else if (otherStart < earliest) e.push(`The start date ${tooOld}`);
     } else if (isSalary || isLoan) {
       if (!(toNumber(amount) > 0)) e.push(`Enter the ${isSalary ? "salary" : "loan"} amount.`);
       if (isSalary && !salaryMonth) e.push("Choose the salary month.");
       if (!payback) e.push("Choose a payback duration.");
     } else if (showTravel && !isTrip) {
       if (!rows.length) e.push("Add at least one travel day.");
+      else if (rows[0].date < earliest) e.push(`The first travel day ${tooOld}`);
       rows.forEach((r, i) => {
         if (!r.start || !r.dest) e.push(`Day ${i + 1}: choose where you start and where you're going.`);
         if (!isDaily && !toNumber(r.units)) e.push(`Day ${i + 1}: enter the number of meals.`);
@@ -340,6 +346,7 @@ export default function NewAdvanceScreen() {
       if (!tripCity || !tripCountry) e.push("Enter where you're travelling to.");
       if (!departure || !returnDate) e.push("Enter departure and return dates.");
       else if (returnDate < departure) e.push("Return can't be before departure.");
+      else if (departure < earliest) e.push(`The departure date ${tooOld}`);
       if (tripIsSouthAfrica && !province) e.push("Choose the South African province.");
     }
     if (extra > 0 && !extraDescription.trim()) e.push("Justify the extra cost.");
@@ -547,12 +554,12 @@ export default function NewAdvanceScreen() {
                 <View style={formStyles.row}>
                   <View style={formStyles.flex}>
                     <Field label="Start date">
-                      <DateInput value={otherStart} onChange={setOtherStart} minimumDate={todayIso()} />
+                      <DateInput value={otherStart} onChange={setOtherStart} minimumDate={earliestTripDate()} />
                     </Field>
                   </View>
                   <View style={formStyles.flex}>
                     <Field label="Finish date">
-                      <DateInput value={otherEnd} onChange={setOtherEnd} minimumDate={otherStart || todayIso()} />
+                      <DateInput value={otherEnd} onChange={setOtherEnd} minimumDate={otherStart || earliestTripDate()} />
                     </Field>
                   </View>
                 </View>
@@ -611,7 +618,7 @@ export default function NewAdvanceScreen() {
                   <DateInput
                     value={r.date}
                     onChange={(d) => updateRow(i, { date: d })}
-                    minimumDate={i > 0 ? rows[i - 1].date : undefined}
+                    minimumDate={i > 0 ? rows[i - 1].date : earliestTripDate()}
                     maximumDate={i < rows.length - 1 ? rows[i + 1].date : undefined}
                   />
                 </Field>
@@ -715,12 +722,12 @@ export default function NewAdvanceScreen() {
             <View style={formStyles.row}>
               <View style={formStyles.flex}>
                 <Field label="Departure">
-                  <DateInput value={departure} onChange={setDeparture} minimumDate={todayIso()} />
+                  <DateInput value={departure} onChange={setDeparture} minimumDate={earliestTripDate()} />
                 </Field>
               </View>
               <View style={formStyles.flex}>
                 <Field label="Return">
-                  <DateInput value={returnDate} onChange={setReturnDate} minimumDate={departure || todayIso()} />
+                  <DateInput value={returnDate} onChange={setReturnDate} minimumDate={departure || earliestTripDate()} />
                 </Field>
               </View>
             </View>
@@ -764,7 +771,7 @@ export default function NewAdvanceScreen() {
           )}
           {method === "ECOCASH" ? (
             <Field label="EcoCash number">
-              <Input value={ecocash} onChangeText={setEcocash} keyboardType="phone-pad" placeholder="e.g. 5xxxxxxx" />
+              <Input value={ecocash} onChangeText={setEcocash} keyboardType="phone-pad" placeholder="e.g. 6xxxxxxx" />
             </Field>
           ) : (
             <>

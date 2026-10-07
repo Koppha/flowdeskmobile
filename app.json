@@ -26,6 +26,12 @@
     },
     "plugins": [
       "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID to unlock FlowDesk."
+        }
+      ],
       "expo-router",
       "expo-splash-screen",
       [

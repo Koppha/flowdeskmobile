@@ -1,6 +1,8 @@
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Bell, BellRing, CircleHelp, LogOut, PenLine } from "lucide-react-native";
+import { useEffect, useState } from "react";
+import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Bell, BellRing, CircleHelp, Fingerprint, KeyRound, LogOut, PenLine, ScanFace } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
+import { authenticate, capitalize, isQuickUnlockEnabled, setQuickUnlockEnabled, useUnlockMethod } from "@/lib/biometrics";
 import { sendTestNotification, TEST_DELAY_SECONDS, TEST_SCENARIOS, type TestScenario } from "@/lib/notifications";
 import { colors, radii, spacing } from "@/theme";
 
@@ -18,6 +20,41 @@ function initials(fullName: string) {
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
+  const method = useUnlockMethod();
+  const [quickUnlock, setQuickUnlock] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    isQuickUnlockEnabled().then(setQuickUnlock).catch(() => setQuickUnlock(true));
+  }, []);
+
+  const noScreenLock = method?.kind === "none";
+  const UnlockIcon = method?.kind === "face" ? ScanFace : method?.kind === "passcode" ? KeyRound : Fingerprint;
+  const unlockLabel = method && !noScreenLock ? capitalize(method.label) : "fingerprint or PIN";
+
+  async function changeQuickUnlock(next: boolean) {
+    if (next) {
+      // Prove it's the owner before trusting this phone's lock with the session.
+      const result = await authenticate("Turn on quick unlock");
+      if (!result.ok) {
+        if (result.error) Alert.alert("Quick unlock", result.error);
+        return;
+      }
+      await setQuickUnlockEnabled(true);
+      setQuickUnlock(true);
+      return;
+    }
+    Alert.alert("Turn off quick unlock?", "FlowDesk will ask for your password every time you open it.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Turn off",
+        style: "destructive",
+        onPress: async () => {
+          await setQuickUnlockEnabled(false);
+          setQuickUnlock(false);
+        }
+      }
+    ]);
+  }
 
   return (
     <ScrollView style={styles.screen}>
@@ -34,6 +71,30 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Security</Text>
+        <View style={[styles.card, styles.cardSpacing]}>
+          <View style={styles.row}>
+            <UnlockIcon size={18} color={colors.muted} strokeWidth={1.8} />
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Unlock with {unlockLabel}</Text>
+              <Text style={styles.rowHint}>
+                {noScreenLock
+                  ? "Set up a screen lock in your phone's settings to use this."
+                  : quickUnlock === false
+                    ? "Off - you'll sign in with your password each time."
+                    : "Opens FlowDesk without your password. Locks again after 5 minutes away."}
+              </Text>
+            </View>
+            <Switch
+              value={Boolean(quickUnlock) && !noScreenLock}
+              onValueChange={changeQuickUnlock}
+              disabled={quickUnlock === null || method === null || noScreenLock}
+              trackColor={{ true: colors.accent }}
+              accessibilityLabel={`Unlock with ${unlockLabel}`}
+            />
+          </View>
+        </View>
+
         <Text style={styles.sectionLabel}>Account</Text>
         <View style={styles.card}>
           <View style={styles.row}>
@@ -98,6 +159,9 @@ const styles = StyleSheet.create({
   rowBorder: { borderTopWidth: 1, borderTopColor: colors.border },
   devLabel: { marginTop: spacing.lg },
   rowLabel: { flex: 1, fontSize: 14, fontWeight: "500", color: colors.ink },
+  rowText: { flex: 1 },
+  rowHint: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  cardSpacing: { marginBottom: spacing.lg },
   logoutRow: {
     marginTop: spacing.lg,
     marginBottom: spacing.xxl,

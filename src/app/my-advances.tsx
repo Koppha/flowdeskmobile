@@ -4,7 +4,8 @@ import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { Plus } from "lucide-react-native";
 import { useMobileModules } from "@/lib/mobile-modules";
 import { api } from "@/lib/api";
-import StatusPill, { type StatusPillProps } from "@/components/StatusPill";
+import StatusPill from "@/components/StatusPill";
+import { statusLabel, toneFor } from "@/lib/status";
 import { colors, radii, spacing } from "@/theme";
 
 type Advance = {
@@ -14,14 +15,6 @@ type Advance = {
   requested_total: number;
   submitted_at: string | null;
 };
-
-function toneFor(status: string): StatusPillProps["tone"] {
-  const s = status.toUpperCase();
-  if (s.includes("REJECT") || s.includes("CANCEL")) return "bad";
-  if (s.includes("APPROV") || s.includes("PAID") || s.includes("SETTLE")) return "good";
-  if (s === "DRAFT") return "muted";
-  return "warn";
-}
 
 export default function MyAdvancesScreen() {
   const [items, setItems] = useState<Advance[]>([]);
@@ -76,16 +69,16 @@ export default function MyAdvancesScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {header}
       {items.map((a) => (
-        <View key={a.id} style={styles.card}>
+        <TouchableOpacity key={a.id} style={styles.card} onPress={() => router.push(`/advance/${a.id}`)} accessibilityHint="Shows approval progress">
           <View style={styles.row}>
             <Text style={styles.title}>{(a.type || "Advance").replace(/_/g, " ")}</Text>
             <Text style={styles.amount}>M{Number(a.requested_total).toFixed(2)}</Text>
           </View>
           <View style={styles.pillRow}>
-            <StatusPill label={a.status.replace(/_/g, " ")} tone={toneFor(a.status)} />
+            <StatusPill label={statusLabel(a.status)} tone={toneFor(a.status)} />
           </View>
           <Text style={styles.meta}>{a.submitted_at ? `Submitted ${new Date(a.submitted_at).toLocaleDateString()}` : "Not yet submitted"}</Text>
-        </View>
+        </TouchableOpacity>
       ))}
       {items.length === 0 && <Text style={styles.empty}>{error ?? "No advance requests yet."}</Text>}
     </ScrollView>

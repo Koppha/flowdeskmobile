@@ -4,6 +4,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { useFocusEffect, useRouter } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
 import { api, type InboxItem } from "@/lib/api";
+import { formatWhen } from "@/lib/request-forms";
 import { colors, spacing } from "@/theme";
 
 function itemMeta(item: InboxItem) {
@@ -132,6 +133,9 @@ export default function InboxScreen() {
                   </View>
                   <Text style={styles.rowTitle}>{meta.title}</Text>
                   <Text style={styles.rowSubtitle}>{meta.subtitle}</Text>
+                  {formatWhen(item.submitted_at || item.created_at) && (
+                    <Text style={styles.rowWhen}>Submitted {formatWhen(item.submitted_at || item.created_at)}</Text>
+                  )}
                 </View>
                 <ChevronRight size={18} color="#9aa3b5" />
               </TouchableOpacity>
@@ -175,6 +179,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row" },
   actionButton: { width: 78, alignItems: "center", justifyContent: "center" },
   actionLabel: { color: "#fff", fontSize: 12.5, fontWeight: "700" },
+  rowWhen: { fontSize: 11.5, color: colors.muted, marginTop: 3 },
   empty: { padding: spacing.xxl, alignItems: "center" },
   emptyText: { color: colors.muted, fontSize: 13 },
   footerHint: { textAlign: "center", fontSize: 12, color: colors.muted, paddingVertical: spacing.lg }

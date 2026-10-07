@@ -52,6 +52,12 @@ export function fromIsoDate(iso: string) {
 
 export const todayIso = () => toIsoDate(new Date());
 
+// Trips already taken can be requested late, up to this many days back -
+// same rule as the backend's BACKDATE_GRACE_DAYS (advances.routes.ts) and the
+// web form's earliestAllowedTripDate().
+export const BACKDATE_GRACE_DAYS = 14;
+export const earliestTripDate = () => addDays(todayIso(), -BACKDATE_GRACE_DAYS);
+
 export function addDays(iso: string, days: number) {
   const d = fromIsoDate(iso);
   d.setDate(d.getDate() + days);
@@ -62,6 +68,19 @@ export function addDays(iso: string, days: number) {
 export function daysInclusive(fromIso: string, toIso: string) {
   const ms = fromIsoDate(toIso).getTime() - fromIsoDate(fromIso).getTime();
   return Math.max(1, Math.round(ms / 86400000) + 1);
+}
+
+/** "Today, 14:05" / "Yesterday, 09:30" / "3 Oct, 16:20" for a timestamp. */
+export function formatWhen(iso?: string | null) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  const day = toIsoDate(d);
+  if (day === todayIso()) return `Today, ${time}`;
+  if (day === addDays(todayIso(), -1)) return `Yesterday, ${time}`;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return `${d.toLocaleDateString(undefined, { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }) })}, ${time}`;
 }
 
 export function formatDisplayDate(iso: string) {
