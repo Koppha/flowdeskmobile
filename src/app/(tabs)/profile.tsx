@@ -2,7 +2,18 @@ import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { Bell, BellRing, CircleHelp, Fingerprint, KeyRound, LogOut, PenLine, ScanFace } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
-import { authenticate, capitalize, isQuickUnlockEnabled, setQuickUnlockEnabled, useUnlockMethod } from "@/lib/biometrics";
+import {
+  AUTO_LOCK_OPTIONS,
+  authenticate,
+  capitalize,
+  getAutoLockMs,
+  isQuickUnlockEnabled,
+  setAutoLockMs,
+  setQuickUnlockEnabled,
+  useUnlockMethod
+} from "@/lib/biometrics";
+import { Segmented, Select } from "@/components/form";
+import { saveThemePreference, themePreference, type ThemePreference } from "@/theme";
 import { sendTestNotification, TEST_DELAY_SECONDS, TEST_SCENARIOS, type TestScenario } from "@/lib/notifications";
 import { colors, radii, spacing } from "@/theme";
 
@@ -22,10 +33,25 @@ export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const method = useUnlockMethod();
   const [quickUnlock, setQuickUnlock] = useState<boolean | null>(null);
+  const [lockAfter, setLockAfter] = useState<string | null>(null);
+  const [theme, setTheme] = useState<ThemePreference>(themePreference);
 
   useEffect(() => {
     isQuickUnlockEnabled().then(setQuickUnlock).catch(() => setQuickUnlock(true));
+    getAutoLockMs().then((ms) => setLockAfter(String(ms)));
   }, []);
+
+  async function changeLockAfter(value: string) {
+    await setAutoLockMs(Number(value));
+    setLockAfter(value);
+  }
+
+  function changeTheme(next: ThemePreference) {
+    if (next === theme) return;
+    saveThemePreference(next);
+    setTheme(next);
+    Alert.alert("Appearance", "Close and reopen FlowDesk to switch to the new look.");
+  }
 
   const noScreenLock = method?.kind === "none";
   const UnlockIcon = method?.kind === "face" ? ScanFace : method?.kind === "passcode" ? KeyRound : Fingerprint;
@@ -93,6 +119,35 @@ export default function ProfileScreen() {
               accessibilityLabel={`Unlock with ${unlockLabel}`}
             />
           </View>
+          {quickUnlock && !noScreenLock && (
+            <View style={[styles.settingBlock, styles.rowBorder]}>
+              <Text style={styles.rowLabel}>Lock FlowDesk</Text>
+              <Text style={[styles.rowHint, styles.settingHint]}>When you leave the app, ask for your {unlockLabel.toLowerCase()} again…</Text>
+              <Select
+                value={lockAfter}
+                options={AUTO_LOCK_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                onChange={changeLockAfter}
+                title="Lock FlowDesk"
+                searchable={false}
+              />
+            </View>
+          )}
+        </View>
+
+        <Text style={styles.sectionLabel}>Appearance</Text>
+        <View style={[styles.card, styles.cardSpacing, styles.settingBlock]}>
+          <Segmented
+            value={theme}
+            options={[
+              { value: "system", label: "System" },
+              { value: "light", label: "Light" },
+              { value: "dark", label: "Dark" }
+            ]}
+            onChange={changeTheme}
+          />
+          <Text style={[styles.rowHint, styles.settingHint]}>
+            {theme === "system" ? "Follows your phone's light/dark setting." : `Always ${theme}.`} Applies when you reopen FlowDesk.
+          </Text>
         </View>
 
         <Text style={styles.sectionLabel}>Account</Text>
@@ -162,6 +217,8 @@ const styles = StyleSheet.create({
   rowText: { flex: 1 },
   rowHint: { fontSize: 12, color: colors.muted, marginTop: 2 },
   cardSpacing: { marginBottom: spacing.lg },
+  settingBlock: { padding: spacing.lg, gap: spacing.sm },
+  settingHint: { marginTop: 0, marginBottom: 2 },
   logoutRow: {
     marginTop: spacing.lg,
     marginBottom: spacing.xxl,

@@ -5,7 +5,7 @@ const TONES = {
   good: { fg: colors.good, bg: colors.goodSoft },
   warn: { fg: colors.warn, bg: colors.warnSoft },
   bad: { fg: colors.bad, bg: colors.badSoft },
-  muted: { fg: colors.muted, bg: "#f1f2f5" }
+  muted: { fg: colors.muted, bg: colors.paper2 }
 };
 
 export type StatusPillProps = { label: string; tone?: keyof typeof TONES };

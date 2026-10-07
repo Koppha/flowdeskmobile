@@ -2,12 +2,19 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { api } from "@/lib/api";
+import { fmtMoney, formatWhen } from "@/lib/request-forms";
+import { statusLabel, toneFor } from "@/lib/status";
+import StatusPill from "@/components/StatusPill";
+import ApprovalTimeline from "@/components/ApprovalTimeline";
+import { AdvanceDetails, ClaimDetails } from "@/components/RequestDetails";
 import { colors, radii, spacing } from "@/theme";
 
 type DocType = "ADVANCE" | "CLAIM" | "CUSTOM_REQUEST";
 
+// Approver's review screen: everything needed to decide (itinerary, dates,
+// day-by-day amounts, reconciliation, approval route), then Approve/Reject.
 export default function ItemDetailScreen() {
-  const { id, docType, action } = useLocalSearchParams<{ id: string; docType: DocType; action?: string }>();
+  const { id, docType, action, name } = useLocalSearchParams<{ id: string; docType: DocType; action?: string; name?: string }>();
   const router = useRouter();
   const [detail, setDetail] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -65,46 +72,51 @@ export default function ItemDetailScreen() {
       </View>
     );
   }
+  if (!detail) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.meta}>{error || "Couldn't load this item."}</Text>
+      </View>
+    );
+  }
 
   const isClaim = docType === "CLAIM";
-  const title = isClaim ? detail?.claimant_name || detail?.full_name : detail?.requester_name || detail?.full_name;
-  const amount = isClaim ? detail?.claim_total : detail?.requested_total;
-  const kind = isClaim ? "Clearance Claim" : (detail?.type || "Advance").replace(/_/g, " ");
+  // The claim payload has no claimant name - the inbox passes it along.
+  const person = isClaim ? name || detail.claimant_name : detail.requester_name || name;
+  const amount = Number(isClaim ? detail.claim_total : detail.approved_total || detail.requested_total) || 0;
+  const currency = isClaim ? detail.currency : detail.travel_currency;
+  const kind = isClaim ? "Clearance claim" : detail.travel_type_name || String(detail.type || "Advance").replace(/_/g, " ");
+  const status = String(detail.status || "");
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.kind}>{kind.toUpperCase()}</Text>
-
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.card}>
-        <Text style={styles.name}>{title || "—"}</Text>
-        {detail?.submitted_at && <Text style={styles.meta}>Submitted {new Date(detail.submitted_at).toLocaleDateString()}</Text>}
-
-        <View style={styles.divider} />
-
-        {!isClaim && detail?.purpose && (
-          <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>Purpose</Text>
-            <Text style={styles.fieldValue}>{detail.purpose}</Text>
-          </View>
-        )}
-        {isClaim && detail?.month && (
-          <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>Month</Text>
-            <Text style={styles.fieldValue}>{detail.month}</Text>
-          </View>
-        )}
-
-        <View style={[styles.fieldRow, styles.totalRow]}>
-          <Text style={styles.fieldLabel}>{isClaim ? "Claim total" : "Requested amount"}</Text>
-          <Text style={styles.totalValue}>M{Number(amount || 0).toFixed(2)}</Text>
+        <Text style={styles.kind}>{kind.toUpperCase()}</Text>
+        <Text style={styles.name}>{person || "—"}</Text>
+        {detail.submitted_at && <Text style={styles.meta}>Submitted {formatWhen(detail.submitted_at)}</Text>}
+        <View style={styles.amountRow}>
+          <Text style={styles.amount}>{fmtMoney(amount, currency)}</Text>
+          {status ? <StatusPill label={statusLabel(status)} tone={toneFor(status)} /> : null}
         </View>
+        {detail.is_overdue && <Text style={styles.overdue}>Overdue at this step</Text>}
       </View>
 
-      <Text style={styles.commentLabel}>Comment</Text>
+      {isClaim ? <ClaimDetails c={detail} claimantName={person} /> : <AdvanceDetails a={detail} />}
+
+      {Array.isArray(detail.approval_chain) && detail.approval_chain.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Approval route</Text>
+          <View style={styles.card}>
+            <ApprovalTimeline chain={detail.approval_chain} workflowStepOrder={detail.workflow_step_order} status={status} submittedAt={detail.submitted_at} />
+          </View>
+        </>
+      )}
+
+      <Text style={styles.sectionTitle}>Your decision</Text>
       <TextInput
         value={comment}
         onChangeText={setComment}
-        placeholder="Optional — required if you reject"
+        placeholder="Comment - optional, required if you reject"
         placeholderTextColor={colors.muted}
         multiline
         style={styles.textarea}
@@ -127,21 +139,25 @@ export default function ItemDetailScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper1 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.paper1 },
-  content: { padding: spacing.xl, paddingBottom: spacing.xxl },
-  kind: { fontSize: 11, fontWeight: "700", letterSpacing: 0.4, color: colors.accent, marginBottom: spacing.md },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.paper1, padding: spacing.xl },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl * 2 },
   card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, padding: spacing.lg },
+  kind: { fontSize: 11, fontWeight: "700", letterSpacing: 0.4, color: colors.accent, marginBottom: 6 },
   name: { fontSize: 19, fontWeight: "700", color: colors.ink },
   meta: { fontSize: 13, color: colors.muted, marginTop: 2 },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
-  fieldRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 5 },
-  fieldLabel: { fontSize: 13.5, color: colors.muted },
-  fieldValue: { fontSize: 13.5, fontWeight: "600", color: colors.ink, maxWidth: 200, textAlign: "right" },
-  totalRow: { paddingTop: 10, marginTop: 4, borderTopWidth: 1, borderTopColor: colors.border, borderStyle: "dashed" },
-  totalValue: { fontSize: 17, fontWeight: "700", color: colors.ink },
-  commentLabel: { marginTop: spacing.xl, fontSize: 12.5, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.3 },
+  amountRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: spacing.md },
+  amount: { fontSize: 22, fontWeight: "700", color: colors.ink },
+  overdue: { marginTop: spacing.sm, fontSize: 12.5, fontWeight: "600", color: colors.warn },
+  sectionTitle: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: colors.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.4
+  },
   textarea: {
-    marginTop: spacing.sm,
     minHeight: 76,
     padding: spacing.md,
     fontSize: 13.5,
@@ -154,7 +170,7 @@ const styles = StyleSheet.create({
   },
   error: { color: colors.bad, fontSize: 12.5, marginTop: spacing.sm },
   hint: { color: colors.muted, fontSize: 12, marginTop: spacing.sm },
-  actions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.xl },
+  actions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   button: { flex: 1, paddingVertical: 13, borderRadius: radii.md, alignItems: "center" },
   rejectButton: { backgroundColor: colors.bad },
   approveButton: { backgroundColor: colors.good },

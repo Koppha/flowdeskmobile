@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { CalendarDays, ChevronDown, Search, X } from "lucide-react-native";
-import { colors, radii, spacing } from "@/theme";
+import { colors, isDark, radii, spacing } from "@/theme";
 import { formatDisplayDate, fromIsoDate, toIsoDate } from "@/lib/request-forms";
 
 export function Section({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {
@@ -184,6 +184,7 @@ export function DateInput({
                 value={current}
                 mode="date"
                 display="inline"
+                themeVariant={isDark ? "dark" : "light"}
                 minimumDate={min}
                 maximumDate={max}
                 onChange={(_e, date) => date && onChange(toIsoDate(date))}

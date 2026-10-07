@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "@/context/auth-context";
 import { useUnlockMethod } from "@/lib/biometrics";
-import { colors, radii, spacing } from "@/theme";
+import { colors, isDark, radii, spacing } from "@/theme";
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -31,7 +31,9 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={styles.center}>
-        <Image source={require("../../assets/econet-logo.png")} style={styles.logo} resizeMode="contain" />
+        <View style={isDark ? styles.logoBackdrop : undefined}>
+        <Image source={require("../../assets/econet-logo.png")} style={[styles.logo, isDark && styles.logoInBackdrop]} resizeMode="contain" />
+      </View>
 
         <Text style={styles.title}>Welcome back</Text>
         <Text style={styles.subtitle}>Sign in to continue to FlowDesk</Text>
@@ -79,6 +81,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.surface, paddingHorizontal: 28, paddingTop: 64, paddingBottom: 32 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   logo: { height: 40, width: 160, marginBottom: 22 },
+  logoInBackdrop: { marginBottom: 0 },
+  logoBackdrop: { backgroundColor: "#ffffff", borderRadius: radii.md, paddingHorizontal: 14, paddingVertical: 8, marginBottom: 22 },
   title: { fontSize: 22, fontWeight: "700", color: colors.ink },
   subtitle: { fontSize: 13.5, color: colors.muted, marginTop: 6, marginBottom: 28 },
   form: { width: "100%", gap: spacing.md },

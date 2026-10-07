@@ -3,7 +3,7 @@ import { AppState } from "react-native";
 import { api, setUnauthorizedHandler } from "@/lib/api";
 import { clearToken, getToken, setToken as storeToken } from "@/lib/secure-storage";
 import { decodeUserFromToken, type FlowDeskUser } from "@/lib/jwt";
-import { authenticate, getUnlockMethod, isQuickUnlockEnabled } from "@/lib/biometrics";
+import { authenticate, getAutoLockMs, getUnlockMethod, isAuthPromptActive, isQuickUnlockEnabled } from "@/lib/biometrics";
 
 // Matches the FlowDesk Mobile write-up's Auth model:
 // - "loading": deciding which of the three states below applies, on cold start.
@@ -17,9 +17,6 @@ import { authenticate, getUnlockMethod, isQuickUnlockEnabled } from "@/lib/biome
 // then, and on phones with no screen lock at all, no session is remembered.
 export type AuthStatus = "loading" | "signedOut" | "locked" | "signedIn";
 
-// Back in the foreground after this long = lock again (over the current
-// screen, so a half-filled form survives the unlock).
-const AUTO_LOCK_MS = 5 * 60 * 1000;
 
 type AuthContextValue = {
   status: AuthStatus;
@@ -88,21 +85,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "background") {
-        backgroundedAt.current = Date.now();
+        // Our own unlock prompt (device PIN screen) doesn't count as leaving.
+        backgroundedAt.current = isAuthPromptActive() ? null : Date.now();
         return;
       }
       if (next !== "active" || backgroundedAt.current === null) return;
       const away = Date.now() - backgroundedAt.current;
       backgroundedAt.current = null;
-      if (statusRef.current !== "signedIn" || away < AUTO_LOCK_MS) return;
-      void canKeepSession().then(async (keep) => {
+      if (statusRef.current !== "signedIn") return;
+      // Back in the foreground after the user's "Lock after" time = lock
+      // again (over the current screen, so a half-filled form survives).
+      void (async () => {
+        const lockAfter = await getAutoLockMs();
+        // "Immediately" still allows a 2 s grace (e.g. pulling down the notification shade).
+        if (lockAfter < 0 || away < Math.max(lockAfter, 2000)) return;
+        const keep = await canKeepSession();
         if (keep) {
           setSessionLocked(true);
         } else {
           await clearToken();
           signOutLocally();
         }
-      });
+      })();
     });
     return () => sub.remove();
   }, []);

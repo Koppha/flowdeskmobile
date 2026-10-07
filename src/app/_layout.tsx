@@ -3,10 +3,25 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Stack, useRouter, useSegments } from "expo-router";
+import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from "@react-navigation/native";
+import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import UnlockPanel from "@/components/UnlockPanel";
 import { useNotificationRouting } from "@/lib/notifications";
-import { colors } from "@/theme";
+import { colors, isDark } from "@/theme";
+
+const navigationTheme: Theme = {
+  ...(isDark ? DarkTheme : DefaultTheme),
+  colors: {
+    ...(isDark ? DarkTheme : DefaultTheme).colors,
+    primary: colors.accent,
+    background: colors.paper1,
+    card: colors.surface,
+    text: colors.ink,
+    border: colors.border,
+    notification: colors.bad
+  }
+};
 
 const AUTH_SCREENS = ["login", "unlock", "push-permission"];
 
@@ -67,9 +82,12 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.fill}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <RootNavigation />
-        </AuthProvider>
+        <ThemeProvider value={navigationTheme}>
+          <StatusBar style={isDark ? "light" : "dark"} />
+          <AuthProvider>
+            <RootNavigation />
+          </AuthProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -3,7 +3,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Fingerprint, KeyRound, ScanFace } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
 import { useUnlockMethod } from "@/lib/biometrics";
-import { colors } from "@/theme";
+import { colors, isDark, radii } from "@/theme";
 
 function initials(fullName: string) {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -44,7 +44,9 @@ export default function UnlockPanel() {
 
   return (
     <View style={styles.screen}>
-      <Image source={require("../../assets/econet-logo.png")} style={styles.logo} resizeMode="contain" />
+      <View style={isDark ? styles.logoBackdrop : undefined}>
+        <Image source={require("../../assets/econet-logo.png")} style={[styles.logo, isDark && styles.logoInBackdrop]} resizeMode="contain" />
+      </View>
 
       <View style={styles.avatar}>
         <Text style={styles.avatarLabel}>{initials(user?.fullName || "")}</Text>
@@ -70,6 +72,8 @@ export default function UnlockPanel() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", padding: 32 },
   logo: { height: 34, width: 140, marginBottom: 28 },
+  logoInBackdrop: { marginBottom: 0 },
+  logoBackdrop: { backgroundColor: "#ffffff", borderRadius: radii.md, paddingHorizontal: 14, paddingVertical: 8, marginBottom: 22 },
   avatar: {
     width: 60,
     height: 60,

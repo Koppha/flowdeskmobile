@@ -92,7 +92,7 @@ export default function InboxScreen() {
 
   function goReject(item: InboxItem) {
     closeRow(item.id);
-    router.push({ pathname: "/item/[id]", params: { id: item.id, docType: item.doc_type, action: "reject" } });
+    router.push({ pathname: "/item/[id]", params: { id: item.id, docType: item.doc_type, action: "reject", name: itemMeta(item).title } });
   }
 
   return (
@@ -124,7 +124,7 @@ export default function InboxScreen() {
             >
               <TouchableOpacity
                 style={styles.row}
-                onPress={() => router.push({ pathname: "/item/[id]", params: { id: item.id, docType: item.doc_type } })}
+                onPress={() => router.push({ pathname: "/item/[id]", params: { id: item.id, docType: item.doc_type, name: meta.title } })}
               >
                 <View style={styles.rowContent}>
                   <View style={styles.rowTop}>
@@ -137,7 +137,7 @@ export default function InboxScreen() {
                     <Text style={styles.rowWhen}>Submitted {formatWhen(item.submitted_at || item.created_at)}</Text>
                   )}
                 </View>
-                <ChevronRight size={18} color="#9aa3b5" />
+                <ChevronRight size={18} color={colors.muted} />
               </TouchableOpacity>
             </Swipeable>
           );
