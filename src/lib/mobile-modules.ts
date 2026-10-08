@@ -28,6 +28,25 @@ export function mergeModules(fromServer?: Partial<Record<ModuleKey, boolean>>): 
   return FORCE_CREATE ? { ...merged, createAdvance: true, createClearance: true } : merged;
 }
 
+// Which module each inbox document type belongs to. Types not listed here
+// (none today) are always shown.
+const MODULE_FOR_DOC_TYPE: Record<string, ModuleKey> = {
+  ADVANCE: "advances",
+  ACCOMMODATION: "advances",
+  CLAIM: "clearances",
+  CUSTOM_REQUEST: "customProcesses",
+  OVERTIME_REQUEST: "overtime",
+  OVERTIME_CLAIM: "overtime",
+  STANDBY_CLAIM: "standby",
+  SIGNABLE_DOCUMENT: "signADocument"
+};
+
+/** Whether an inbox item's module is switched on for the mobile app. */
+export function isDocTypeEnabled(docType: string, modules: Record<ModuleKey, boolean>) {
+  const key = MODULE_FOR_DOC_TYPE[docType];
+  return key ? modules[key] : true;
+}
+
 /** The admin-controlled module switches, re-read whenever the screen regains focus. */
 export function useMobileModules() {
   const [modules, setModules] = useState(DEFAULT_MODULES);

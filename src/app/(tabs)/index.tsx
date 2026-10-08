@@ -5,7 +5,7 @@ import { CheckCircle2, ClipboardList, Clock3, FileSignature, GitBranch, Radio, t
 import { useAuth } from "@/context/auth-context";
 import { api, type InboxItem, type ModuleKey } from "@/lib/api";
 import ModuleTile from "@/components/ModuleTile";
-import { DEFAULT_MODULES, mergeModules } from "@/lib/mobile-modules";
+import { DEFAULT_MODULES, isDocTypeEnabled, mergeModules } from "@/lib/mobile-modules";
 import { colors, radii, spacing } from "@/theme";
 
 const MODULE_DEFS: { key: ModuleKey; label: string; icon: LucideIcon; color: string; bg: string; route?: "/my-advances" | "/my-clearances" }[] = [
@@ -29,7 +29,8 @@ export default function HomeScreen() {
     try {
       const [inboxRes, advancesRes, configRes] = await Promise.all([api.inbox(), api.myAdvances(), api.mobileConfig()]);
       const items: InboxItem[] = inboxRes.items || [];
-      setPendingCount(items.filter((i) => i.current_step_actionable_by_me).length);
+      const modules = mergeModules(configRes?.modules);
+      setPendingCount(items.filter((i) => i.current_step_actionable_by_me && isDocTypeEnabled(i.doc_type, modules)).length);
       const advances = Array.isArray(advancesRes) ? advancesRes : advancesRes.items || [];
       setInProgressCount(advances.filter((a: any) => !["DRAFT", "PAID", "CANCELLED", "REJECTED"].includes(a.status)).length);
       if (configRes?.modules) setEnabledModules(mergeModules(configRes.modules));

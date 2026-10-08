@@ -5,6 +5,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
 import { api, type InboxItem } from "@/lib/api";
 import { formatWhen } from "@/lib/request-forms";
+import { isDocTypeEnabled, mergeModules } from "@/lib/mobile-modules";
 import { colors, spacing } from "@/theme";
 
 function itemMeta(item: InboxItem) {
@@ -41,12 +42,18 @@ export default function InboxScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Items waiting in modules the admin hasn't switched on for the app.
+  const [hiddenCount, setHiddenCount] = useState(0);
   const rowRefs = useRef<Record<string, Swipeable | null>>({});
 
   const load = useCallback(async () => {
     try {
-      const res = await api.inbox();
-      setItems((res.items || []).filter((i) => i.current_step_actionable_by_me));
+      const [res, config] = await Promise.all([api.inbox(), api.mobileConfig().catch(() => null)]);
+      const modules = mergeModules(config?.modules);
+      const actionable = (res.items || []).filter((i) => i.current_step_actionable_by_me);
+      const visible = actionable.filter((i) => isDocTypeEnabled(i.doc_type, modules));
+      setItems(visible);
+      setHiddenCount(actionable.length - visible.length);
       setError(null);
     } catch (e: any) {
       setError(e?.message || "Couldn't load your inbox.");
@@ -149,6 +156,12 @@ export default function InboxScreen() {
           </View>
         )}
 
+        {!loading && hiddenCount > 0 && (
+          <Text style={styles.hiddenNote}>
+            {hiddenCount} more {hiddenCount === 1 ? "item is" : "items are"} waiting in modules that aren&apos;t in the app yet - open FlowDesk on the web to action {hiddenCount === 1 ? "it" : "them"}.
+          </Text>
+        )}
+
         <Text style={styles.footerHint}>Swipe left on an item to approve or reject without opening it.</Text>
       </ScrollView>
     </View>
@@ -179,6 +192,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row" },
   actionButton: { width: 78, alignItems: "center", justifyContent: "center" },
   actionLabel: { color: "#fff", fontSize: 12.5, fontWeight: "700" },
+  hiddenNote: { textAlign: "center", color: colors.muted, fontSize: 12.5, paddingHorizontal: spacing.xl, paddingVertical: spacing.lg },
   rowWhen: { fontSize: 11.5, color: colors.muted, marginTop: 3 },
   empty: { padding: spacing.xxl, alignItems: "center" },
   emptyText: { color: colors.muted, fontSize: 13 },

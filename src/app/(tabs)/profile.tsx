@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
-import { Bell, BellRing, CircleHelp, Fingerprint, KeyRound, LogOut, PenLine, ScanFace } from "lucide-react-native";
+import { BellRing, CircleHelp, Fingerprint, KeyRound, LogOut, Mail, PenLine, ScanFace } from "lucide-react-native";
+import { api } from "@/lib/api";
+import { enableNotifications } from "@/lib/notifications";
 import { useAuth } from "@/context/auth-context";
 import {
   AUTO_LOCK_OPTIONS,
@@ -35,11 +37,34 @@ export default function ProfileScreen() {
   const [quickUnlock, setQuickUnlock] = useState<boolean | null>(null);
   const [lockAfter, setLockAfter] = useState<string | null>(null);
   const [theme, setTheme] = useState<ThemePreference>(themePreference);
+  const [notify, setNotify] = useState<{ email: boolean; push: boolean } | null>(null);
+  const [notifyError, setNotifyError] = useState<string | null>(null);
 
   useEffect(() => {
     isQuickUnlockEnabled().then(setQuickUnlock).catch(() => setQuickUnlock(true));
     getAutoLockMs().then((ms) => setLockAfter(String(ms)));
+    api
+      .notificationPrefs()
+      .then(setNotify)
+      .catch(() => setNotifyError("Couldn't load your notification settings."));
   }, []);
+
+  async function changeNotify(kind: "email" | "push", on: boolean) {
+    if (!notify) return;
+    if (kind === "push" && on && !(await enableNotifications())) {
+      Alert.alert("Push notifications", "Allow notifications for FlowDesk in your phone's settings first.");
+      return;
+    }
+    const previous = notify;
+    setNotify({ ...notify, [kind]: on });
+    try {
+      setNotify(await api.setNotificationPrefs({ [kind]: on }));
+      setNotifyError(null);
+    } catch {
+      setNotify(previous);
+      setNotifyError("Couldn't save - check your connection and try again.");
+    }
+  }
 
   async function changeLockAfter(value: string) {
     await setAutoLockMs(Number(value));
@@ -134,6 +159,42 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        <Text style={styles.sectionLabel}>Notifications</Text>
+        <View style={[styles.card, styles.cardSpacing]}>
+          <View style={styles.row}>
+            <BellRing size={18} color={colors.muted} strokeWidth={1.8} />
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Push notifications</Text>
+              <Text style={styles.rowHint}>On this phone when something needs your approval.</Text>
+            </View>
+            <Switch
+              value={Boolean(notify?.push)}
+              onValueChange={(v) => changeNotify("push", v)}
+              disabled={!notify}
+              trackColor={{ true: colors.accent }}
+              accessibilityLabel="Push notifications"
+            />
+          </View>
+          <View style={[styles.row, styles.rowBorder]}>
+            <Mail size={18} color={colors.muted} strokeWidth={1.8} />
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Email notifications</Text>
+              <Text style={styles.rowHint}>Approval requests and status updates, with approve/reject links.</Text>
+            </View>
+            <Switch
+              value={Boolean(notify?.email)}
+              onValueChange={(v) => changeNotify("email", v)}
+              disabled={!notify}
+              trackColor={{ true: colors.accent }}
+              accessibilityLabel="Email notifications"
+            />
+          </View>
+          {notifyError && <Text style={[styles.rowHint, styles.notifyError]}>{notifyError}</Text>}
+          {notify && !notify.email && !notify.push && (
+            <Text style={[styles.rowHint, styles.notifyError]}>{"Both are off - you'll only see new requests by opening the Inbox."}</Text>
+          )}
+        </View>
+
         <Text style={styles.sectionLabel}>Appearance</Text>
         <View style={[styles.card, styles.cardSpacing, styles.settingBlock]}>
           <Segmented
@@ -153,10 +214,6 @@ export default function ProfileScreen() {
         <Text style={styles.sectionLabel}>Account</Text>
         <View style={styles.card}>
           <View style={styles.row}>
-            <Bell size={18} color={colors.muted} strokeWidth={1.8} />
-            <Text style={styles.rowLabel}>Notifications</Text>
-          </View>
-          <View style={[styles.row, styles.rowBorder]}>
             <PenLine size={18} color={colors.muted} strokeWidth={1.8} />
             <Text style={styles.rowLabel}>Saved signature</Text>
           </View>
@@ -217,6 +274,7 @@ const styles = StyleSheet.create({
   rowText: { flex: 1 },
   rowHint: { fontSize: 12, color: colors.muted, marginTop: 2 },
   cardSpacing: { marginBottom: spacing.lg },
+  notifyError: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, color: colors.warn },
   settingBlock: { padding: spacing.lg, gap: spacing.sm },
   settingHint: { marginTop: 0, marginBottom: 2 },
   logoutRow: {

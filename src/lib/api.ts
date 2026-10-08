@@ -121,6 +121,11 @@ export const api = {
   rejectClaim: (id: string, comments: string) =>
     req(`/claims/${id}/reject`, { method: "POST", body: JSON.stringify({ comments }) }),
 
+  // Profile > Notifications - honoured by the backend's email and push senders.
+  notificationPrefs: () => req("/auth/me/notifications") as Promise<{ email: boolean; push: boolean }>,
+  setNotificationPrefs: (prefs: { email?: boolean; push?: boolean }) =>
+    req("/auth/me/notifications", { method: "PUT", body: JSON.stringify(prefs) }) as Promise<{ email: boolean; push: boolean }>,
+
   registerPushToken: (expoPushToken: string) =>
     req("/auth/push-token", { method: "POST", body: JSON.stringify({ expoPushToken }) }),
 
