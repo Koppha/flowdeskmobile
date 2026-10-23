@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -7,10 +7,11 @@ import { Camera, FileText, Image as ImageIcon, Plus, Trash2 } from "lucide-react
 import { api, type ClaimTripInput } from "@/lib/api";
 import { useMobileModules } from "@/lib/mobile-modules";
 import { RESERVED_TYPES, addDays, fmtMoney, formatDisplayDate, toNumber, todayIso } from "@/lib/request-forms";
-import { DateInput, Field, Input, PrimaryButton, Section, Select, SummaryRow, formStyles, type SelectOption } from "@/components/form";
-import { colors, radii, spacing } from "@/theme";
+import { DateInput, Field, Input, PrimaryButton, Section, Select, SummaryRow, type SelectOption, useFormStyles } from "@/components/form";
+import { useLayout } from "@/components/layout";
+import { makeStyles, radii, spacing, useTheme } from "@/theme";
 
-type Advance = { id: string; type: string; status: string; approved_total: number | string | null; requested_total: number | string; created_at: string; travel_type_name?: string };
+type Advance = { id: string; type: string; status: string; approved_total: number | string | null; requested_total: number | string; created_at: string; travel_type_name?: string; travel_currency?: string | null };
 type Claim = { id: string; status: string; linked_advance_id: string | null };
 type TripRow = { date: string; from: string; purpose: string; meals: string; transport: string; other: string };
 type Receipt = { id: string; file_name: string; size_bytes?: number };
@@ -38,7 +39,11 @@ const num = (v: unknown) => Number(v) || 0;
 const money = (n: number) => (n ? String(Number(n.toFixed(2))) : "");
 
 export default function NewClearanceScreen() {
+  const { colors } = useTheme();
+  const formStyles = useFormStyles();
+  const receiptStyles = useReceiptStyles();
   const router = useRouter();
+  const { gutter } = useLayout();
   const { modules, loaded: modulesLoaded } = useMobileModules();
 
   const [loading, setLoading] = useState(true);
@@ -89,7 +94,7 @@ export default function NewClearanceScreen() {
   const options: SelectOption[] = useMemo(() => {
     const blocked = new Set(claims.filter((c) => c.status !== "REJECTED" && c.linked_advance_id).map((c) => c.linked_advance_id));
     const label = (a: Advance) =>
-      `${a.travel_type_name || a.type.replace(/_/g, " ")} - ${fmtMoney(num(a.approved_total ?? a.requested_total))}`;
+      `${a.travel_type_name || a.type.replace(/_/g, " ")} - ${fmtMoney(num(a.approved_total ?? a.requested_total), a.travel_currency)}`;
     const fresh = advances
       .filter((a) => a.status === "PAID" && a.type !== RESERVED_TYPES.SALARY && a.type !== RESERVED_TYPES.LOAN && !blocked.has(a.id))
       .map((a) => ({ value: `advance:${a.id}`, label: label(a), sub: a.created_at ? `Paid advance · ${formatDisplayDate(a.created_at.slice(0, 10))}` : "Paid advance" }));
@@ -106,7 +111,8 @@ export default function NewClearanceScreen() {
     const c = await api.claimDetail(id);
     setClaimId(id);
     setAdvanceAmount(num(c.advance_amount));
-    setCurrency(c.currency || "LSL");
+    // A clearance is settled in its advance's currency - fall back to it if the claim has none.
+    setCurrency(c.currency || advances.find((a) => a.id === c.linked_advance_id)?.travel_currency || "LSL");
     setMonth(c.month || "");
     setDutyStation(c.duty_station || "");
     setProjectNumber(c.project_number || "");
@@ -315,7 +321,7 @@ export default function NewClearanceScreen() {
 
   if (!claimId) {
     return (
-      <ScrollView style={formStyles.screen} contentContainerStyle={formStyles.content}>
+      <ScrollView style={formStyles.screen} contentContainerStyle={[formStyles.content, { paddingHorizontal: gutter() }]}>
         <Section title="Advance to clear">
           {options.length ? (
             <>
@@ -338,8 +344,8 @@ export default function NewClearanceScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={formStyles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView style={formStyles.screen} contentContainerStyle={formStyles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView style={formStyles.flex} behavior="padding">
+      <ScrollView style={formStyles.screen} contentContainerStyle={[formStyles.content, { paddingHorizontal: gutter() }]} keyboardShouldPersistTaps="handled">
         <Section title="Details">
           <Field label="Month">
             <Select value={month} options={monthOptions()} onChange={setMonth} placeholder="Choose month" />
@@ -507,6 +513,7 @@ export default function NewClearanceScreen() {
 }
 
 function ReceiptButton({ icon, label, onPress }: { icon: ReactNode; label: string; onPress: () => void }) {
+  const receiptStyles = useReceiptStyles();
   return (
     <TouchableOpacity style={receiptStyles.button} onPress={onPress} accessibilityRole="button">
       {icon}
@@ -515,7 +522,7 @@ function ReceiptButton({ icon, label, onPress }: { icon: ReactNode; label: strin
   );
 }
 
-const receiptStyles = StyleSheet.create({
+const useReceiptStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 8 },
   name: { flex: 1, fontSize: 14, color: colors.ink },
   actions: { flexDirection: "row", gap: spacing.sm, marginVertical: spacing.sm },
@@ -531,4 +538,4 @@ const receiptStyles = StyleSheet.create({
     borderRadius: radii.md
   },
   buttonLabel: { color: colors.accent, fontWeight: "600", fontSize: 13.5 }
-});
+}));

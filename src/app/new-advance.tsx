@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Plus, Trash2 } from "lucide-react-native";
 import {
@@ -33,8 +33,9 @@ import {
   todayIso,
   travelRate
 } from "@/lib/request-forms";
-import { DateInput, Field, Input, PrimaryButton, Section, Segmented, Select, SummaryRow, formStyles, type SelectOption } from "@/components/form";
-import { colors } from "@/theme";
+import { DateInput, Field, Input, PrimaryButton, Section, Segmented, Select, SummaryRow, type SelectOption, useFormStyles } from "@/components/form";
+import { useLayout } from "@/components/layout";
+import { useTheme } from "@/theme";
 
 const SELF = "__SELF__";
 const EXTERNAL = "__EXTERNAL__";
@@ -42,7 +43,10 @@ const EXTERNAL = "__EXTERNAL__";
 type DayRow = { date: string; start: string; dest: string; units: string };
 
 export default function NewAdvanceScreen() {
+  const { colors } = useTheme();
+  const formStyles = useFormStyles();
   const router = useRouter();
+  const { gutter } = useLayout();
   const { modules, loaded: modulesLoaded } = useMobileModules();
 
   // Reference data
@@ -499,8 +503,8 @@ export default function NewAdvanceScreen() {
   }));
 
   return (
-    <KeyboardAvoidingView style={formStyles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView style={formStyles.screen} contentContainerStyle={formStyles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView style={formStyles.flex} behavior="padding">
+      <ScrollView style={formStyles.screen} contentContainerStyle={[formStyles.content, { paddingHorizontal: gutter() }]} keyboardShouldPersistTaps="handled">
         {requestForOptions.length > 1 && (
           <Section title="Request for">
             <Field label="Who is this advance for?" hint={draftId ? "Locked - a draft already exists for this person." : undefined}>

@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { CalendarDays, MapPin, Paperclip, Receipt, User, Wallet } from "lucide-react-native";
 import { addDays, fmtMoney, formatDisplayDate } from "@/lib/request-forms";
-import { colors, radii, spacing } from "@/theme";
+import { makeStyles, radii, spacing, useTheme } from "@/theme";
 
 // What an approver needs to decide on an advance or clearance: who, where,
 // when, day by day, and how the amount adds up. Fed by GET /advances/:id and
@@ -12,6 +12,7 @@ const num = (v: unknown) => Number(v) || 0;
 const day = (v: unknown) => String(v || "").slice(0, 10);
 
 function Section({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
+  const styles = useStyles();
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
@@ -24,6 +25,7 @@ function Section({ title, icon, children }: { title: string; icon?: ReactNode; c
 }
 
 function Row({ label, value, strong }: { label: string; value?: string | null; strong?: boolean }) {
+  const styles = useStyles();
   if (!value) return null;
   return (
     <View style={styles.row}>
@@ -80,6 +82,8 @@ function districtRoute(lines: Line[]) {
 }
 
 export function AdvanceDetails({ a }: { a: any }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const currency = a.travel_currency || "LSL";
   const lines: Line[] = Array.isArray(a.lines) ? [...a.lines].sort((x, y) => day(x.line_date).localeCompare(day(y.line_date))) : [];
   const isTrip = a.travel_location_mode === "COUNTRY_CITY";
@@ -195,6 +199,8 @@ export function AdvanceDetails({ a }: { a: any }) {
 // ---------------------------------------------------------------- Clearance
 
 export function ClaimDetails({ c, claimantName }: { c: any; claimantName?: string | null }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const currency = c.currency || "LSL";
   const trips: any[] = Array.isArray(c.trips) ? [...c.trips].sort((x, y) => day(x.trip_date).localeCompare(day(y.trip_date))) : [];
   const receipts: any[] = Array.isArray(c.receipts) ? c.receipts : [];
@@ -270,7 +276,7 @@ export function ClaimDetails({ c, claimantName }: { c: any; claimantName?: strin
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   section: { marginTop: spacing.lg },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.sm },
   sectionTitle: { fontSize: 12.5, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.4 },
@@ -290,4 +296,4 @@ const styles = StyleSheet.create({
   lineWhere: { fontSize: 13.5, color: colors.ink, marginTop: 2 },
   lineMeta: { fontSize: 12.5, color: colors.muted, marginTop: 2 },
   receipt: { fontSize: 13.5, color: colors.ink, paddingVertical: 2 }
-});
+}));

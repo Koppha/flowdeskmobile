@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
 import { BellRing, CircleHelp, Fingerprint, KeyRound, LogOut, Mail, PenLine, ScanFace } from "lucide-react-native";
 import { api } from "@/lib/api";
 import { enableNotifications } from "@/lib/notifications";
@@ -15,9 +15,9 @@ import {
   useUnlockMethod
 } from "@/lib/biometrics";
 import { Segmented, Select } from "@/components/form";
-import { saveThemePreference, themePreference, type ThemePreference } from "@/theme";
+import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
 import { sendTestNotification, TEST_DELAY_SECONDS, TEST_SCENARIOS, type TestScenario } from "@/lib/notifications";
-import { colors, radii, spacing } from "@/theme";
+import { Panes, useLayout } from "@/components/layout";
 
 async function fireTest(scenario: TestScenario) {
   const result = await sendTestNotification(scenario);
@@ -32,13 +32,15 @@ function initials(fullName: string) {
 }
 
 export default function ProfileScreen() {
+  const { colors, preference: theme, setPreference: setTheme } = useTheme();
+  const styles = useStyles();
   const { user, logout } = useAuth();
   const method = useUnlockMethod();
   const [quickUnlock, setQuickUnlock] = useState<boolean | null>(null);
   const [lockAfter, setLockAfter] = useState<string | null>(null);
-  const [theme, setTheme] = useState<ThemePreference>(themePreference);
   const [notify, setNotify] = useState<{ email: boolean; push: boolean } | null>(null);
   const [notifyError, setNotifyError] = useState<string | null>(null);
+  const { gutter } = useLayout();
 
   useEffect(() => {
     isQuickUnlockEnabled().then(setQuickUnlock).catch(() => setQuickUnlock(true));
@@ -51,6 +53,14 @@ export default function ProfileScreen() {
 
   async function changeNotify(kind: "email" | "push", on: boolean) {
     if (!notify) return;
+    // At least one channel must stay on, or approvals would go unnoticed.
+    if (!on && !notify[kind === "email" ? "push" : "email"]) {
+      Alert.alert(
+        "Keep one on",
+        `You need at least one way to hear about approvals. Turn on ${kind === "email" ? "push" : "email"} notifications first, then you can turn ${kind} off.`
+      );
+      return;
+    }
     if (kind === "push" && on && !(await enableNotifications())) {
       Alert.alert("Push notifications", "Allow notifications for FlowDesk in your phone's settings first.");
       return;
@@ -69,13 +79,6 @@ export default function ProfileScreen() {
   async function changeLockAfter(value: string) {
     await setAutoLockMs(Number(value));
     setLockAfter(value);
-  }
-
-  function changeTheme(next: ThemePreference) {
-    if (next === theme) return;
-    saveThemePreference(next);
-    setTheme(next);
-    Alert.alert("Appearance", "Close and reopen FlowDesk to switch to the new look.");
   }
 
   const noScreenLock = method?.kind === "none";
@@ -107,9 +110,11 @@ export default function ProfileScreen() {
     ]);
   }
 
+  const padX = { paddingHorizontal: gutter(layout.maxWideWidth, spacing.xl) };
+
   return (
     <ScrollView style={styles.screen}>
-      <View style={styles.header}>
+      <View style={[styles.header, padX]}>
         <View style={styles.avatar}>
           <Text style={styles.avatarLabel}>{initials(user?.fullName || "")}</Text>
         </View>
@@ -121,7 +126,10 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <View style={styles.section}>
+      <View style={[styles.section, padX]}>
+        <Panes
+          left={
+            <>
         <Text style={styles.sectionLabel}>Security</Text>
         <View style={[styles.card, styles.cardSpacing]}>
           <View style={styles.row}>
@@ -190,11 +198,12 @@ export default function ProfileScreen() {
             />
           </View>
           {notifyError && <Text style={[styles.rowHint, styles.notifyError]}>{notifyError}</Text>}
-          {notify && !notify.email && !notify.push && (
-            <Text style={[styles.rowHint, styles.notifyError]}>{"Both are off - you'll only see new requests by opening the Inbox."}</Text>
-          )}
+          <Text style={[styles.rowHint, styles.notifyNote]}>Choose at least one - you can have both.</Text>
         </View>
-
+            </>
+          }
+          right={
+            <>
         <Text style={styles.sectionLabel}>Appearance</Text>
         <View style={[styles.card, styles.cardSpacing, styles.settingBlock]}>
           <Segmented
@@ -204,10 +213,10 @@ export default function ProfileScreen() {
               { value: "light", label: "Light" },
               { value: "dark", label: "Dark" }
             ]}
-            onChange={changeTheme}
+            onChange={setTheme}
           />
           <Text style={[styles.rowHint, styles.settingHint]}>
-            {theme === "system" ? "Follows your phone's light/dark setting." : `Always ${theme}.`} Applies when you reopen FlowDesk.
+            {theme === "system" ? "Follows your phone's light/dark setting." : `Always ${theme}.`}
           </Text>
         </View>
 
@@ -241,18 +250,20 @@ export default function ProfileScreen() {
           <LogOut size={18} color={colors.bad} strokeWidth={1.8} />
           <Text style={styles.logoutLabel}>Log out</Text>
         </TouchableOpacity>
+            </>
+          }
+        />
       </View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.paper1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    paddingHorizontal: spacing.xl,
     paddingTop: spacing.xxl,
     paddingBottom: spacing.xl,
     backgroundColor: colors.surface,
@@ -264,7 +275,7 @@ const styles = StyleSheet.create({
   headerText: { flex: 1 },
   name: { fontSize: 17, fontWeight: "700", color: colors.ink },
   meta: { fontSize: 12.5, color: colors.muted, marginTop: 2 },
-  section: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
+  section: { paddingTop: spacing.lg },
   sectionLabel: { fontSize: 12.5, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: spacing.sm },
   card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, overflow: "hidden" },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 14, paddingHorizontal: spacing.lg },
@@ -274,6 +285,7 @@ const styles = StyleSheet.create({
   rowText: { flex: 1 },
   rowHint: { fontSize: 12, color: colors.muted, marginTop: 2 },
   cardSpacing: { marginBottom: spacing.lg },
+  notifyNote: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
   notifyError: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, color: colors.warn },
   settingBlock: { padding: spacing.lg, gap: spacing.sm },
   settingHint: { marginTop: 0, marginBottom: 2 },
@@ -291,4 +303,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg
   },
   logoutLabel: { fontSize: 14, fontWeight: "600", color: colors.bad }
-});
+}));

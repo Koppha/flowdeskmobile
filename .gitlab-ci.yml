@@ -9,6 +9,10 @@
 #   build the release APK, keep it as a pipeline artifact, and upload it to
 #   the FlowDesk portal ("Get the App" then serves it).
 # - On main, a manual "build_apk" button builds a test APK without uploading.
+# - On main, a manual "publish_update" button ships the current JS to every
+#   installed APK of the latest release over the air (no new APK). Only for
+#   JS-only changes: if native code changed since the last v* tag, the update
+#   matches no installed APK - tag a new release instead.
 #
 # CI/CD variables to set in GitLab (Settings > CI/CD > Variables, masked +
 # protected): FLOWDESK_ADMIN_EMAIL, FLOWDESK_ADMIN_PASSWORD (an ADMIN account).
@@ -72,6 +76,8 @@ build_apk:
     # One command (not "cd android && ... && cd ..") so a Gradle failure stops the job here.
     - ./android/gradlew -p android app:assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
     - cp android/app/build/outputs/apk/release/app-release.apk "flowdesk-mobile-${APP_VERSION}.apk"
+    # The runtime version OTA updates must match to reach this APK (see publish_update).
+    - echo "Runtime version:" && npx expo-updates runtimeversion:resolve --platform android | tail -1 | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).runtimeVersion"
     - echo "APP_VERSION=${APP_VERSION}" > build.env
   artifacts:
     name: "flowdesk-mobile-$CI_COMMIT_REF_NAME"
@@ -88,3 +94,22 @@ publish_apk:
     - *release_tag
   script:
     - node scripts/upload-build.mjs --file "flowdesk-mobile-${APP_VERSION}.apk" --version "${APP_VERSION}"
+
+publish_update:
+  stage: publish
+  needs: [check]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+      allow_failure: true
+  variables:
+    # Full history + tags, to find the latest release tag.
+    GIT_DEPTH: "0"
+  script:
+    - npm ci --no-audit --no-fund
+    # Rebuild app.json exactly as the latest release APK was built, so the
+    # runtime version (native fingerprint) matches the APKs people have installed.
+    - LATEST_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*')
+    - echo "Targeting installed APKs of ${LATEST_TAG}"
+    - node scripts/set-version.mjs "${LATEST_TAG#v}"
+    - node scripts/publish-update.mjs --message "${CI_COMMIT_SHORT_SHA} ${CI_COMMIT_TITLE}"

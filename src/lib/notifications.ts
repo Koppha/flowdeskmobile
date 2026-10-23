@@ -4,6 +4,7 @@ import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { router, type Href } from "expo-router";
 import { api, type InboxItem } from "./api";
+import { fmtMoney } from "./request-forms";
 
 // Every FlowDesk notification is { title, body,
 // data: { url } }, where url is an Expo Router path (e.g.
@@ -100,8 +101,8 @@ export function useNotificationRouting(ready: boolean) {
   useEffect(() => {
     if (Platform.OS === "web") return;
     function handle(n: Notifications.Notification | undefined) {
-      const url = n?.request.content.data?.url;
-      if (typeof url !== "string") return;
+      const url = urlFor(n?.request.content.data);
+      if (!url) return;
       if (readyRef.current) openUrl(url);
       else pendingUrl.current = url;
     }
@@ -109,6 +110,18 @@ export function useNotificationRouting(ready: boolean) {
     const sub = Notifications.addNotificationResponseReceivedListener((r) => handle(r.notification));
     return () => sub.remove();
   }, []);
+}
+
+// Older backend pushes (advance/claim approvals in notifications.ts) carry
+// { docType, docId } rather than a url - map those onto the same screens.
+function urlFor(data: Record<string, unknown> | undefined): string | null {
+  if (!data) return null;
+  if (typeof data.url === "string") return data.url;
+  const { docType, docId } = data;
+  if (typeof docId !== "string" || typeof docType !== "string") return null;
+  if (docType === "SIGNABLE_DOCUMENT") return `/sign?doc=${docId}`;
+  if (docType === "ADVANCE" || docType === "CLAIM") return `/item/${docId}?docType=${docType}`;
+  return "/inbox";
 }
 
 function openUrl(url: string) {
@@ -146,14 +159,14 @@ async function approvalContent(): Promise<Content> {
   if (item?.doc_type === "ADVANCE") {
     return {
       title: "Advance awaiting your approval",
-      body: `${item.requester_name} · M${Number(item.requested_total).toFixed(2)}`,
+      body: `${item.requester_name} · ${fmtMoney(Number(item.requested_total), item.currency)}`,
       url: `/item/${item.id}?docType=ADVANCE`
     };
   }
   if (item?.doc_type === "CLAIM") {
     return {
       title: "Clearance claim awaiting your approval",
-      body: `${item.claimant_name} · M${Number(item.claim_total).toFixed(2)}`,
+      body: `${item.claimant_name} · ${fmtMoney(Number(item.claim_total), item.currency)}`,
       url: `/item/${item.id}?docType=CLAIM`
     };
   }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "948806958954",
+    "project_id": "flowdesk-55a1f",
+    "storage_bucket": "flowdesk-55a1f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:948806958954:android:8f08ea0584fedd4d3f2f13",
+        "android_client_info": {
+          "package_name": "ls.co.etl.flowdesk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCciVcrq3ce2cKcoYNTfsbPzFZ1OF8jspU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

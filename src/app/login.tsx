@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, KeyboardAvoidingView, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useAuth } from "@/context/auth-context";
 import { useUnlockMethod } from "@/lib/biometrics";
-import { colors, isDark, radii, spacing } from "@/theme";
+import { makeStyles, radii, spacing, useTheme } from "@/theme";
 
 export default function LoginScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useStyles();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +31,9 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    // Android is edge-to-edge, so adjustResize no longer shrinks the window — pad on both platforms.
+    <KeyboardAvoidingView style={styles.screen} behavior="padding">
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={styles.center}>
         <View style={isDark ? styles.logoBackdrop : undefined}>
         <Image source={require("../../assets/econet-logo.png")} style={[styles.logo, isDark && styles.logoInBackdrop]} resizeMode="contain" />
@@ -73,13 +77,15 @@ export default function LoginScreen() {
       </View>
 
       <Text style={styles.disclaimer}>This is a secure system. Unauthorised access is prohibited.</Text>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.surface, paddingHorizontal: 28, paddingTop: 64, paddingBottom: 32 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+const useStyles = makeStyles((colors) => ({
+  screen: { flex: 1, backgroundColor: colors.surface },
+  scroll: { flexGrow: 1, paddingHorizontal: 28, paddingTop: 64, paddingBottom: 32 },
+  center: { flex: 1, width: "100%", maxWidth: 420, alignSelf: "center", alignItems: "center", justifyContent: "center", paddingBottom: 24 },
   logo: { height: 40, width: 160, marginBottom: 22 },
   logoInBackdrop: { marginBottom: 0 },
   logoBackdrop: { backgroundColor: "#ffffff", borderRadius: radii.md, paddingHorizontal: 14, paddingVertical: 8, marginBottom: 22 },
@@ -110,4 +116,4 @@ const styles = StyleSheet.create({
   buttonLabel: { color: "#fff", fontSize: 14.5, fontWeight: "700" },
   hint: { marginTop: 16, fontSize: 11.5, color: colors.muted, textAlign: "center" },
   disclaimer: { fontSize: 11, color: colors.muted, textAlign: "center", lineHeight: 16 }
-});
+}));

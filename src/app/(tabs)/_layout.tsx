@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Tabs } from "expo-router";
 import { Home, Inbox, User, type LucideIcon } from "lucide-react-native";
 import { api } from "@/lib/api";
-import { colors } from "@/theme";
+import { useTheme } from "@/theme";
 
 type TabKey = "home" | "inbox" | "profile";
 type TabConfig = { key: TabKey; enabled: boolean };
@@ -23,6 +23,7 @@ const TAB_META: Record<TabKey, { route: string; title: string; icon: LucideIcon 
 };
 
 export default function TabsLayout() {
+  const { colors } = useTheme();
   const [tabs, setTabs] = useState<TabConfig[]>(DEFAULT_TABS);
 
   useEffect(() => {

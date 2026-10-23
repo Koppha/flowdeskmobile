@@ -1,7 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { Check, Circle, Clock3, X } from "lucide-react-native";
 import { formatWhen } from "@/lib/request-forms";
-import { colors, spacing } from "@/theme";
+import { makeStyles, spacing, useTheme } from "@/theme";
 
 // Approval route of an advance or claim: approval_chain + workflow_step_order
 // from GET /advances/:id or /claims/:id. Each step records approved /
@@ -43,6 +43,8 @@ export function chainSteps(chain: unknown, workflowStepOrder: unknown, status: s
 }
 
 export function TimelineItem({ state, title, detail, last }: { state: StepState; title: string; detail?: string | null; last?: boolean }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const icon =
     state === "done" ? (
       <Check size={14} color="#fff" strokeWidth={3} />
@@ -117,7 +119,7 @@ export default function ApprovalTimeline({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", gap: spacing.md },
   rail: { alignItems: "center", width: 24 },
   dot: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
@@ -131,4 +133,4 @@ const styles = StyleSheet.create({
   title: { fontSize: 14, fontWeight: "600", color: colors.ink },
   titleMuted: { color: colors.muted },
   detail: { fontSize: 12.5, color: colors.muted, marginTop: 2 }
-});
+}));

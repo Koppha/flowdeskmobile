@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { api } from "@/lib/api";
 import { fmtMoney, formatWhen } from "@/lib/request-forms";
@@ -7,13 +7,16 @@ import { statusLabel, toneFor } from "@/lib/status";
 import StatusPill from "@/components/StatusPill";
 import ApprovalTimeline from "@/components/ApprovalTimeline";
 import { AdvanceDetails, ClaimDetails } from "@/components/RequestDetails";
-import { colors, radii, spacing } from "@/theme";
+import { Panes, useLayout } from "@/components/layout";
+import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
 
 type DocType = "ADVANCE" | "CLAIM" | "CUSTOM_REQUEST";
 
 // Approver's review screen: everything needed to decide (itinerary, dates,
 // day-by-day amounts, reconciliation, approval route), then Approve/Reject.
 export default function ItemDetailScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { id, docType, action, name } = useLocalSearchParams<{ id: string; docType: DocType; action?: string; name?: string }>();
   const router = useRouter();
   const [detail, setDetail] = useState<any>(null);
@@ -21,6 +24,7 @@ export default function ItemDetailScreen() {
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { gutter, twoPane } = useLayout();
 
   useEffect(() => {
     (async () => {
@@ -87,9 +91,17 @@ export default function ItemDetailScreen() {
   const currency = isClaim ? detail.currency : detail.travel_currency;
   const kind = isClaim ? "Clearance claim" : detail.travel_type_name || String(detail.type || "Advance").replace(/_/g, " ");
   const status = String(detail.status || "");
+  const hasRoute = Array.isArray(detail.approval_chain) && detail.approval_chain.length > 0;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[styles.content, { paddingHorizontal: gutter(layout.maxWideWidth) }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Panes
+        left={
+          <>
       <View style={styles.card}>
         <Text style={styles.kind}>{kind.toUpperCase()}</Text>
         <Text style={styles.name}>{person || "—"}</Text>
@@ -102,17 +114,20 @@ export default function ItemDetailScreen() {
       </View>
 
       {isClaim ? <ClaimDetails c={detail} claimantName={person} /> : <AdvanceDetails a={detail} />}
-
-      {Array.isArray(detail.approval_chain) && detail.approval_chain.length > 0 && (
+          </>
+        }
+        right={
+          <>
+      {hasRoute && (
         <>
-          <Text style={styles.sectionTitle}>Approval route</Text>
+          <Text style={[styles.sectionTitle, twoPane && styles.paneTop]}>Approval route</Text>
           <View style={styles.card}>
             <ApprovalTimeline chain={detail.approval_chain} workflowStepOrder={detail.workflow_step_order} status={status} submittedAt={detail.submitted_at} />
           </View>
         </>
       )}
 
-      <Text style={styles.sectionTitle}>Your decision</Text>
+      <Text style={[styles.sectionTitle, twoPane && !hasRoute && styles.paneTop]}>Your decision</Text>
       <TextInput
         value={comment}
         onChangeText={setComment}
@@ -133,11 +148,14 @@ export default function ItemDetailScreen() {
           <Text style={styles.buttonLabel}>{submitting ? "Working…" : "Approve"}</Text>
         </TouchableOpacity>
       </View>
+          </>
+        }
+      />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.paper1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.paper1, padding: spacing.xl },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl * 2 },
@@ -157,6 +175,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4
   },
+  paneTop: { marginTop: 0 },
   textarea: {
     minHeight: 76,
     padding: spacing.md,
@@ -175,4 +194,4 @@ const styles = StyleSheet.create({
   rejectButton: { backgroundColor: colors.bad },
   approveButton: { backgroundColor: colors.good },
   buttonLabel: { color: "#fff", fontSize: 14.5, fontWeight: "700" }
-});
+}));

@@ -34,6 +34,9 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+# The OTA code-signing certificate is public (the app embeds it to verify
+# updates; the private key stays on the backend) and the build needs it.
+!certs/certificate.pem
 
 # local env files
 .env*.local
@@ -48,3 +51,6 @@ yarn-error.*
 # Claude Code local settings (can contain approved commands with secrets)
 .claude/settings.json
 .claude/settings.local.json
+
+# Firebase service account (FCM V1) private key - uploaded to Expo, never commit
+*firebase-adminsdk*.json

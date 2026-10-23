@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Clock3, X } from "lucide-react-native";
 import { api } from "@/lib/api";
@@ -8,7 +8,8 @@ import { statusLabel, toneFor } from "@/lib/status";
 import StatusPill from "@/components/StatusPill";
 import ApprovalTimeline, { chainSteps, stepTitle } from "@/components/ApprovalTimeline";
 import { AdvanceDetails } from "@/components/RequestDetails";
-import { colors, radii, spacing } from "@/theme";
+import { Panes, useLayout } from "@/components/layout";
+import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
 
 // Requester-side tracking for one advance: where it is in its approval route,
 // who approved each step and when, payment, the itinerary, and the full
@@ -39,12 +40,15 @@ const ACTION_LABELS: Record<string, string> = {
 const HIDDEN_ACTIONS = new Set(["ADVANCE_LINES_UPDATE"]);
 
 export default function AdvanceTrackingScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [advance, setAdvance] = useState<any>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { gutter, twoPane } = useLayout();
 
   const load = useCallback(async () => {
     try {
@@ -91,7 +95,7 @@ export default function AdvanceTrackingScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingHorizontal: gutter(layout.maxWideWidth) }]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -103,6 +107,9 @@ export default function AdvanceTrackingScreen() {
         />
       }
     >
+      <Panes
+        left={
+          <>
       <View style={styles.card}>
         <Text style={styles.kind}>{String(advance.travel_type_name || advance.type || "Advance").replace(/_/g, " ").toUpperCase()}</Text>
         <View style={styles.row}>
@@ -129,7 +136,11 @@ export default function AdvanceTrackingScreen() {
           </View>
         )}
       </View>
-
+      {twoPane && <AdvanceDetails a={advance} />}
+          </>
+        }
+        right={
+          <>
       <Text style={styles.sectionLabel}>Progress</Text>
       <View style={styles.card}>
         <ApprovalTimeline
@@ -148,7 +159,7 @@ export default function AdvanceTrackingScreen() {
         />
       </View>
 
-      <AdvanceDetails a={advance} />
+      {!twoPane && <AdvanceDetails a={advance} />}
 
       {events.length > 0 && (
         <>
@@ -167,11 +178,14 @@ export default function AdvanceTrackingScreen() {
           </View>
         </>
       )}
+          </>
+        }
+      />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.paper1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl * 2 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.paper1, padding: spacing.xl },
@@ -189,4 +203,4 @@ const styles = StyleSheet.create({
   eventBorder: { borderTopWidth: 1, borderTopColor: colors.border },
   eventTitle: { fontSize: 14, fontWeight: "600", color: colors.ink },
   comment: { marginTop: 4, fontSize: 13, color: colors.ink, fontStyle: "italic" }
-});
+}));

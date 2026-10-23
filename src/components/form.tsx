@@ -4,7 +4,7 @@ import {
   Modal,
   Platform,
   Pressable,
-  StyleSheet,
+  
   Text,
   TextInput,
   TouchableOpacity,
@@ -13,10 +13,12 @@ import {
 } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { CalendarDays, ChevronDown, Search, X } from "lucide-react-native";
-import { colors, isDark, radii, spacing } from "@/theme";
+import { useLayout } from "@/components/layout";
+import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
 import { formatDisplayDate, fromIsoDate, toIsoDate } from "@/lib/request-forms";
 
 export function Section({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {
+  const styles = useStyles();
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
@@ -29,6 +31,7 @@ export function Section({ title, children, right }: { title: string; children: R
 }
 
 export function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string | null; children: ReactNode }) {
+  const styles = useStyles();
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -39,6 +42,8 @@ export function Field({ label, hint, error, children }: { label: string; hint?: 
 }
 
 export function Input(props: TextInputProps) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   return <TextInput placeholderTextColor={colors.muted} {...props} style={[styles.input, props.multiline && styles.textarea, props.style]} />;
 }
 
@@ -65,8 +70,11 @@ export function Select({
   onSearch?: (q: string) => void;
   emptyText?: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const { gutter } = useLayout();
   const selected = options.find((o) => o.value === value);
   const visible = useMemo(() => {
     if (onSearch || !q.trim()) return options;
@@ -85,7 +93,7 @@ export function Select({
         </View>
       </TouchableOpacity>
       <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
-        <View style={styles.modal}>
+        <View style={[styles.modal, { paddingHorizontal: gutter(layout.maxContentWidth, 0) }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{title || placeholder}</Text>
             <TouchableOpacity onPress={() => setOpen(false)} hitSlop={12} accessibilityLabel="Close">
@@ -147,6 +155,8 @@ export function DateInput({
   maximumDate?: string;
   placeholder?: string;
 }) {
+  const { colors, isDark } = useTheme();
+  const styles = useStyles();
   const [iosOpen, setIosOpen] = useState(false);
   const current = value ? fromIsoDate(value) : minimumDate ? fromIsoDate(minimumDate) : new Date();
   const min = minimumDate ? fromIsoDate(minimumDate) : undefined;
@@ -207,6 +217,7 @@ export function Segmented<T extends string>({
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.segmented}>
       {options.map((o) => (
@@ -235,6 +246,7 @@ export function PrimaryButton({
   disabled?: boolean;
   variant?: "primary" | "secondary";
 }) {
+  const styles = useStyles();
   return (
     <TouchableOpacity
       style={[styles.button, variant === "secondary" && styles.buttonSecondary, disabled && styles.buttonDisabled]}
@@ -248,6 +260,7 @@ export function PrimaryButton({
 }
 
 export function SummaryRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  const styles = useStyles();
   return (
     <View style={styles.summaryRow}>
       <Text style={[styles.summaryLabel, strong && styles.summaryStrong]}>{label}</Text>
@@ -256,7 +269,7 @@ export function SummaryRow({ label, value, strong }: { label: string; value: str
   );
 }
 
-export const formStyles = StyleSheet.create({
+export const useFormStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.paper1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl * 2 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.paper1, padding: spacing.xl },
@@ -267,9 +280,9 @@ export const formStyles = StyleSheet.create({
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
   link: { color: colors.accent, fontWeight: "600", fontSize: 13.5 },
   muted: { color: colors.muted, fontSize: 12.5, lineHeight: 17 }
-});
+}));
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   section: { marginBottom: spacing.lg },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
   sectionTitle: { fontSize: 12.5, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.4 },
@@ -331,4 +344,4 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 13.5, color: colors.muted },
   summaryValue: { fontSize: 13.5, color: colors.ink, fontWeight: "600" },
   summaryStrong: { fontSize: 15, color: colors.ink, fontWeight: "700" }
-});
+}));

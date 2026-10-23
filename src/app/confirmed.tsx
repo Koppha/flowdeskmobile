@@ -1,9 +1,11 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Check } from "lucide-react-native";
-import { colors, radii } from "@/theme";
+import { makeStyles, radii, useTheme } from "@/theme";
 
 export default function ConfirmedScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { outcome } = useLocalSearchParams<{ outcome?: string }>();
   const router = useRouter();
 
@@ -25,11 +27,11 @@ export default function ConfirmedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.paper1, alignItems: "center", justifyContent: "center", padding: 32 },
   iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.goodSoft, alignItems: "center", justifyContent: "center" },
   title: { marginTop: 20, fontSize: 20, fontWeight: "700", color: colors.ink },
   body: { marginTop: 6, fontSize: 13.5, color: colors.muted, textAlign: "center", maxWidth: 260, lineHeight: 20 },
   button: { marginTop: 28, paddingVertical: 12, paddingHorizontal: 22, borderRadius: radii.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   buttonLabel: { fontSize: 13.5, fontWeight: "600", color: colors.ink }
-});
+}));

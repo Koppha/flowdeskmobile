@@ -6,7 +6,7 @@ import { clearToken, getToken } from "./secure-storage";
 // rule of only ever deploying to UAT unless explicitly asked - a PROD build
 // overrides this via an EAS build profile's environment config, not by
 // editing this default.
-const API = (Constants.expoConfig?.extra?.apiUrl as string) || "https://dt-externalproxy-1.etl.co.ls/etl/flowdesk/uat";
+export const API = (Constants.expoConfig?.extra?.apiUrl as string) || "https://dt-externalproxy-1.etl.co.ls/etl/flowdesk/uat";
 
 function formatApiError(json: any, fallback: string) {
   const message = typeof json?.error === "string" ? json.error : fallback;
@@ -68,6 +68,7 @@ export type AdvanceInboxItem = {
   purpose: string | null;
   requester_name: string;
   advance_type?: string;
+  currency?: string | null;
   current_step_position_name?: string | null;
   current_step_actionable_by_me?: boolean;
 };
@@ -80,6 +81,7 @@ export type ClaimInboxItem = {
   advance_amount: number;
   balance_amount: number;
   claimant_name: string;
+  currency?: string | null;
   current_step_position_name?: string | null;
   current_step_actionable_by_me?: boolean;
 };
@@ -94,7 +96,18 @@ export type CustomRequestInboxItem = {
   current_step_actionable_by_me?: boolean;
 };
 
-export type InboxItem = (AdvanceInboxItem | ClaimInboxItem | CustomRequestInboxItem) & {
+// A routed document waiting for my signature (signatures module).
+export type SignableDocumentInboxItem = {
+  doc_type: "SIGNABLE_DOCUMENT";
+  id: string;
+  status: string;
+  title: string;
+  created_by_name: string | null;
+  current_step_position_name?: string | null;
+  current_step_actionable_by_me?: boolean;
+};
+
+export type InboxItem = (AdvanceInboxItem | ClaimInboxItem | CustomRequestInboxItem | SignableDocumentInboxItem) & {
   submitted_at?: string | null;
   created_at?: string | null;
 };

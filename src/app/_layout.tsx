@@ -1,5 +1,6 @@
-import { useEffect } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { useEffect, useMemo } from "react";
+import { ActivityIndicator, Dimensions, StyleSheet, View } from "react-native";
+import * as ScreenOrientation from "expo-screen-orientation";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Stack, useRouter, useSegments } from "expo-router";
@@ -8,24 +9,36 @@ import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import UnlockPanel from "@/components/UnlockPanel";
 import { useNotificationRouting } from "@/lib/notifications";
-import { colors, isDark } from "@/theme";
+import { ThemeProvider as AppThemeProvider, layout, makeStyles, useTheme, type Colors } from "@/theme";
 
-const navigationTheme: Theme = {
-  ...(isDark ? DarkTheme : DefaultTheme),
-  colors: {
-    ...(isDark ? DarkTheme : DefaultTheme).colors,
-    primary: colors.accent,
-    background: colors.paper1,
-    card: colors.surface,
-    text: colors.ink,
-    border: colors.border,
-    notification: colors.bad
-  }
-};
+// Tablets rotate freely; phones stay portrait. Judged by the physical
+// screen's short side, so it doesn't flip in split-screen or on rotation.
+const { width: screenW, height: screenH } = Dimensions.get("screen");
+if (Math.min(screenW, screenH) < layout.tabletMinWidth) {
+  void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+}
+
+function navigationTheme(colors: Colors, isDark: boolean): Theme {
+  const base = isDark ? DarkTheme : DefaultTheme;
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: colors.accent,
+      background: colors.paper1,
+      card: colors.surface,
+      text: colors.ink,
+      border: colors.border,
+      notification: colors.bad
+    }
+  };
+}
 
 const AUTH_SCREENS = ["login", "unlock", "push-permission"];
 
 function RootNavigation() {
+  const { colors } = useTheme();
+  const styles = useStyles();
   const { status, justLoggedIn, sessionLocked } = useAuth();
   const segments = useSegments();
   const router = useRouter();
@@ -64,6 +77,7 @@ function RootNavigation() {
         <Stack.Screen name="new-clearance" options={{ headerShown: true, title: "New Clearance" }} />
         <Stack.Screen name="item/[id]" options={{ headerShown: true, title: "" }} />
         <Stack.Screen name="advance/[id]" options={{ headerShown: true, title: "Advance" }} />
+        <Stack.Screen name="sign" options={{ headerShown: true, title: "Sign a Document" }} />
         <Stack.Screen name="confirmed" />
       </Stack>
       {/* Re-locked after time in the background: cover the current screen
@@ -78,22 +92,33 @@ function RootNavigation() {
   );
 }
 
+function ThemedApp() {
+  const { colors, isDark } = useTheme();
+  const navTheme = useMemo(() => navigationTheme(colors, isDark), [colors, isDark]);
+  return (
+    <ThemeProvider value={navTheme}>
+      <StatusBar style={isDark ? "light" : "dark"} />
+      <AuthProvider>
+        <RootNavigation />
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.fill}>
       <SafeAreaProvider>
-        <ThemeProvider value={navigationTheme}>
-          <StatusBar style={isDark ? "light" : "dark"} />
-          <AuthProvider>
-            <RootNavigation />
-          </AuthProvider>
-        </ThemeProvider>
+        <AppThemeProvider>
+          <ThemedApp />
+        </AppThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
+const styles = StyleSheet.create({ fill: { flex: 1 } });
+
+const useStyles = makeStyles((colors) => ({
   loading: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface }
-});
+}));

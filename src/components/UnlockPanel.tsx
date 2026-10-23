@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, Text, TouchableOpacity, View } from "react-native";
 import { Fingerprint, KeyRound, ScanFace } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
 import { useUnlockMethod } from "@/lib/biometrics";
-import { colors, isDark, radii } from "@/theme";
+import { makeStyles, radii, useTheme } from "@/theme";
 
 function initials(fullName: string) {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -14,6 +14,8 @@ function initials(fullName: string) {
 // The Unlock screen's content - used by the /unlock route on a cold start and
 // as a full-screen overlay when the app re-locks after time in the background.
 export default function UnlockPanel() {
+  const { colors, isDark } = useTheme();
+  const styles = useStyles();
   const { user, unlock, logout } = useAuth();
   const method = useUnlockMethod();
   const [status, setStatus] = useState<"idle" | "prompting" | "failed">("idle");
@@ -69,7 +71,7 @@ export default function UnlockPanel() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", padding: 32 },
   logo: { height: 34, width: 140, marginBottom: 28 },
   logoInBackdrop: { marginBottom: 0 },
@@ -97,4 +99,4 @@ const styles = StyleSheet.create({
   },
   status: { marginTop: 14, fontSize: 12, color: colors.muted, minHeight: 16, textAlign: "center" },
   fallback: { marginTop: 40, fontSize: 13, color: colors.muted, textDecorationLine: "underline" }
-});
+}));

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Bell } from "lucide-react-native";
 import { enableNotifications } from "@/lib/notifications";
-import { colors, radii } from "@/theme";
+import { makeStyles, radii } from "@/theme";
 
 export default function PushPermissionScreen() {
+  const styles = useStyles();
   const router = useRouter();
   const [asking, setAsking] = useState(false);
 
@@ -38,7 +39,7 @@ export default function PushPermissionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.paper1, alignItems: "center", justifyContent: "center", padding: 32 },
   iconBadge: {
     width: 56,
@@ -54,6 +55,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     marginTop: 26,
     width: "100%",
+    maxWidth: 420,
     paddingVertical: 14,
     borderRadius: radii.md,
     backgroundColor: colors.accent,
@@ -61,4 +63,4 @@ const styles = StyleSheet.create({
   },
   primaryLabel: { color: "#fff", fontSize: 14.5, fontWeight: "700" },
   skipLabel: { marginTop: 14, fontSize: 13, color: colors.muted }
-});
+}));

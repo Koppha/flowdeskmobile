@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
-import { colors, radii, spacing } from "@/theme";
+import { makeStyles, radii, spacing } from "@/theme";
 
 export default function ModuleTile({
   icon: Icon,
@@ -15,6 +15,7 @@ export default function ModuleTile({
   iconBg: string;
   onPress?: () => void;
 }) {
+  const styles = useStyles();
   const disabled = !onPress;
   return (
     <Pressable
@@ -30,9 +31,8 @@ export default function ModuleTile({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   tile: {
-    flexBasis: "48%",
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -44,4 +44,4 @@ const styles = StyleSheet.create({
   tileDisabled: { opacity: 0.55 },
   iconBadge: { width: 36, height: 36, borderRadius: radii.md, alignItems: "center", justifyContent: "center" },
   label: { fontSize: 13.5, fontWeight: "600", color: colors.ink }
-});
+}));

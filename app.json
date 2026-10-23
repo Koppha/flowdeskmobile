@@ -4,12 +4,25 @@
     "slug": "flowdesk-mobile",
     "scheme": "flowdesk",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://dt-externalproxy-1.etl.co.ls/etl/flowdesk/uat/mobile-app/updates/manifest",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "codeSigningCertificate": "./certs/certificate.pem",
+      "codeSigningMetadata": {
+        "keyid": "main",
+        "alg": "rsa-v1_5-sha256"
+      }
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.flowdeskmobile"
+      "bundleIdentifier": "ls.co.etl.flowdesk"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +32,12 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.flowdeskmobile"
+      "package": "ls.co.etl.flowdesk",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -34,6 +52,7 @@
       ],
       "expo-router",
       "expo-splash-screen",
+      "expo-screen-orientation",
       [
         "expo-notifications",
         {
@@ -49,10 +68,15 @@
           "photosPermission": "Allow $(PRODUCT_NAME) to attach receipt photos to your clearances.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
-      "apiUrl": "https://dt-externalproxy-1.etl.co.ls/etl/flowdesk/uat"
-    }
+      "apiUrl": "https://dt-externalproxy-1.etl.co.ls/etl/flowdesk/uat",
+      "eas": {
+        "projectId": "85d4e93c-2faa-409c-97f4-dd46d575f519"
+      }
+    },
+    "owner": "econet-telecom-lesotho"
   }
 }
