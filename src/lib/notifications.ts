@@ -113,10 +113,12 @@ export function useNotificationRouting(ready: boolean) {
 }
 
 // Older backend pushes (advance/claim approvals in notifications.ts) carry
-// { docType, docId } rather than a url - map those onto the same screens.
+// { docType, docId } rather than a url, and maintenance ones { type, id } -
+// map those onto the same screens.
 function urlFor(data: Record<string, unknown> | undefined): string | null {
   if (!data) return null;
   if (typeof data.url === "string") return data.url;
+  if (data.type === "MAINTENANCE" && typeof data.id === "string") return `/maintenance?req=${data.id}`;
   const { docType, docId } = data;
   if (typeof docId !== "string" || typeof docType !== "string") return null;
   if (docType === "SIGNABLE_DOCUMENT") return `/sign?doc=${docId}`;

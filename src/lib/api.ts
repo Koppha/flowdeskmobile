@@ -107,7 +107,24 @@ export type SignableDocumentInboxItem = {
   current_step_actionable_by_me?: boolean;
 };
 
-export type InboxItem = (AdvanceInboxItem | ClaimInboxItem | CustomRequestInboxItem | SignableDocumentInboxItem) & {
+// A maintenance request where I have the next move (maintenance module).
+export type MaintenanceInboxItem = {
+  doc_type: "MAINTENANCE_REQUEST";
+  id: string;
+  status: string;
+  status_label?: string;
+  request_no: string;
+  site_name: string;
+  location: string;
+  category: string;
+  priority: string;
+  requester_name: string;
+  task_label: string;
+  current_step_position_name?: string | null;
+  current_step_actionable_by_me?: boolean;
+};
+
+export type InboxItem = (AdvanceInboxItem | ClaimInboxItem | CustomRequestInboxItem | SignableDocumentInboxItem | MaintenanceInboxItem) & {
   submitted_at?: string | null;
   created_at?: string | null;
 };
@@ -204,7 +221,8 @@ export type ModuleKey =
   | "overtime"
   | "standby"
   | "customProcesses"
-  | "signADocument";
+  | "signADocument"
+  | "maintenance";
 
 export type EmploymentType = "PERMANENT" | "INTERN" | "TEMPORARY" | string;
 

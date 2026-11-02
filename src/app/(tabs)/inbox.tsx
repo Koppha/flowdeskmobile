@@ -37,6 +37,15 @@ function itemMeta(item: InboxItem, colors: Colors) {
       kindColor: colors.purple
     };
   }
+  if (item.doc_type === "MAINTENANCE_REQUEST") {
+    return {
+      kind: item.priority === "EMERGENCY" ? "Maintenance · Emergency" : "Maintenance",
+      title: `${item.request_no} · ${item.site_name}`,
+      subtitle: item.task_label,
+      amount: null as string | null,
+      kindColor: item.priority === "EMERGENCY" ? colors.bad : colors.warn
+    };
+  }
   return {
     kind: "Custom Process",
     title: item.request_type_name,
@@ -133,8 +142,9 @@ export default function InboxScreen() {
               ref={(r) => {
                 rowRefs.current[item.id] = r;
               }}
-              // Signing needs a placed signature, so no swipe-to-approve.
-              enabled={item.doc_type !== "SIGNABLE_DOCUMENT"}
+              // Signing needs a placed signature and maintenance has its own
+              // steps, so neither gets swipe-to-approve.
+              enabled={item.doc_type !== "SIGNABLE_DOCUMENT" && item.doc_type !== "MAINTENANCE_REQUEST"}
               renderRightActions={() => (
                 <View style={styles.actions}>
                   <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.bad }]} onPress={() => goReject(item)}>
@@ -151,7 +161,9 @@ export default function InboxScreen() {
                 onPress={() =>
                   item.doc_type === "SIGNABLE_DOCUMENT"
                     ? router.push({ pathname: "/sign", params: { doc: item.id } })
-                    : router.push({ pathname: "/item/[id]", params: { id: item.id, docType: item.doc_type, name: meta.title } })
+                    : item.doc_type === "MAINTENANCE_REQUEST"
+                      ? router.push({ pathname: "/maintenance", params: { req: item.id } })
+                      : router.push({ pathname: "/item/[id]", params: { id: item.id, docType: item.doc_type, name: meta.title } })
                 }
               >
                 <View style={styles.rowContent}>

@@ -15,7 +15,8 @@ export const DEFAULT_MODULES: Record<ModuleKey, boolean> = {
   overtime: false,
   standby: false,
   customProcesses: false,
-  signADocument: false
+  signADocument: false,
+  maintenance: false
 };
 
 // Dev builds only: start Metro with EXPO_PUBLIC_FORCE_CREATE=1 to try the
@@ -38,7 +39,8 @@ const MODULE_FOR_DOC_TYPE: Record<string, ModuleKey> = {
   OVERTIME_REQUEST: "overtime",
   OVERTIME_CLAIM: "overtime",
   STANDBY_CLAIM: "standby",
-  SIGNABLE_DOCUMENT: "signADocument"
+  SIGNABLE_DOCUMENT: "signADocument",
+  MAINTENANCE_REQUEST: "maintenance"
 };
 
 /** Whether an inbox item's module is switched on for the mobile app. */

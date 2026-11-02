@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { CheckCircle2, ClipboardList, Clock3, FileSignature, GitBranch, Radio, type LucideIcon } from "lucide-react-native";
+import { CheckCircle2, ClipboardList, Clock3, FileSignature, GitBranch, Radio, Wrench, type LucideIcon } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
 import { api, type InboxItem, type ModuleKey } from "@/lib/api";
 import ModuleTile from "@/components/ModuleTile";
@@ -9,13 +9,14 @@ import { DEFAULT_MODULES, isDocTypeEnabled, mergeModules } from "@/lib/mobile-mo
 import { Grid, useLayout } from "@/components/layout";
 import { layout, makeStyles, radii, spacing, useTheme, type Colors } from "@/theme";
 
-const MODULE_DEFS: { key: ModuleKey; label: string; icon: LucideIcon; color: keyof Colors; bg: keyof Colors; route?: "/my-advances" | "/my-clearances" | "/sign" }[] = [
+const MODULE_DEFS: { key: ModuleKey; label: string; icon: LucideIcon; color: keyof Colors; bg: keyof Colors; route?: "/my-advances" | "/my-clearances" | "/sign" | "/maintenance" }[] = [
   { key: "advances", label: "Advances", icon: ClipboardList, color: "accent", bg: "accentSoft", route: "/my-advances" },
   { key: "clearances", label: "Clearances", icon: CheckCircle2, color: "good", bg: "goodSoft", route: "/my-clearances" },
   { key: "overtime", label: "Overtime", icon: Clock3, color: "warn", bg: "warnSoft" },
   { key: "standby", label: "Standby", icon: Radio, color: "info", bg: "infoSoft" },
   { key: "customProcesses", label: "Custom Processes", icon: GitBranch, color: "purple", bg: "purpleSoft" },
-  { key: "signADocument", label: "Sign a Document", icon: FileSignature, color: "accent", bg: "accentSoft", route: "/sign" }
+  { key: "signADocument", label: "Sign a Document", icon: FileSignature, color: "accent", bg: "accentSoft", route: "/sign" },
+  { key: "maintenance", label: "Maintenance", icon: Wrench, color: "warn", bg: "warnSoft", route: "/maintenance" }
 ];
 
 export default function HomeScreen() {
