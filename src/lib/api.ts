@@ -248,6 +248,7 @@ export type Profile = {
   team_name: string | null;
   employment_type: EmploymentType | null;
   profile_completed: boolean;
+  phone?: string | null;
 };
 
 export type DirectoryUser = {

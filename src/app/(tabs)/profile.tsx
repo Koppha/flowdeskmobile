@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
-import { BellRing, CircleHelp, Fingerprint, KeyRound, LogOut, Mail, PenLine, ScanFace } from "lucide-react-native";
+import { BellRing, ChevronRight, CircleHelp, Fingerprint, KeyRound, LogOut, Mail, PenLine, Phone, ScanFace } from "lucide-react-native";
+import { useFocusEffect, useRouter } from "expo-router";
 import { api } from "@/lib/api";
 import { enableNotifications } from "@/lib/notifications";
 import { useAuth } from "@/context/auth-context";
@@ -40,7 +41,17 @@ export default function ProfileScreen() {
   const [lockAfter, setLockAfter] = useState<string | null>(null);
   const [notify, setNotify] = useState<{ email: boolean; push: boolean } | null>(null);
   const [notifyError, setNotifyError] = useState<string | null>(null);
+  // undefined = still loading; "" = none on file.
+  const [phone, setPhone] = useState<string | undefined>(undefined);
   const { gutter } = useLayout();
+  const router = useRouter();
+
+  // Re-read on focus, so a number just added on the Phone number screen shows.
+  useFocusEffect(
+    useCallback(() => {
+      api.me().then((p) => setPhone(p.phone || "")).catch(() => {});
+    }, [])
+  );
 
   useEffect(() => {
     isQuickUnlockEnabled().then(setQuickUnlock).catch(() => setQuickUnlock(true));
@@ -130,6 +141,19 @@ export default function ProfileScreen() {
         <Panes
           left={
             <>
+        <Text style={styles.sectionLabel}>Contact</Text>
+        <View style={[styles.card, styles.cardSpacing]}>
+          {/* The phone screen is a server page (/web?go=phone), shared with the "add your number" push. */}
+          <TouchableOpacity style={styles.row} onPress={() => router.push({ pathname: "/web", params: { go: "phone" } })} accessibilityRole="button">
+            <Phone size={18} color={colors.muted} strokeWidth={1.8} />
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Phone number</Text>
+              <Text style={styles.rowHint}>{phone === undefined ? "…" : phone || "Not added yet - tap to add it"}</Text>
+            </View>
+            <ChevronRight size={18} color={colors.muted} />
+          </TouchableOpacity>
+        </View>
+
         <Text style={styles.sectionLabel}>Security</Text>
         <View style={[styles.card, styles.cardSpacing]}>
           <View style={styles.row}>

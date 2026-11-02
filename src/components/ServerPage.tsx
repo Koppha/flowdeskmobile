@@ -69,9 +69,9 @@ async function pickPhotos(source: "camera" | "library", max: number): Promise<Na
     .map((a, i) => ({ dataUrl: `data:${a.mimeType || "image/jpeg"};base64,${a.base64}`, name: a.fileName || `photo-${Date.now()}-${i}.jpg` }));
 }
 
-export type ServerSection = "sign" | "maintenance";
+export type ServerSection = "sign" | "maintenance" | "account";
 
-export default function ServerPage({ section, docId, requestId }: { section: ServerSection; docId?: string; requestId?: string }) {
+export default function ServerPage({ section, docId, requestId, start }: { section: ServerSection; docId?: string; requestId?: string; start?: string }) {
   const { colors, isDark } = useTheme();
   const styles = useStyles();
   const router = useRouter();
@@ -164,6 +164,8 @@ export default function ServerPage({ section, docId, requestId }: { section: Ser
     section,
     docId: docId || undefined,
     requestId: requestId || undefined,
+    // A named screen to open first (/web?go=phone).
+    start: start || undefined,
     // What this build can do for the page; older builds send none.
     capabilities: ["headerAction", "nativePhotos"]
   });
