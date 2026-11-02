@@ -98,7 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void (async () => {
         const lockAfter = await getAutoLockMs();
         // "Immediately" still allows a 2 s grace (e.g. pulling down the notification shade).
-        if (lockAfter < 0 || away < Math.max(lockAfter, 2000)) return;
+        if (lockAfter < 0 || away < Math.max(lockAfter, 2000)) {
+          // Back in without a re-lock still counts as using the app (Analytics).
+          api.trackOpen();
+          return;
+        }
         const keep = await canKeepSession();
         if (keep) {
           setSessionLocked(true);
@@ -125,6 +129,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (result.ok) {
       setSessionLocked(false);
       setStatus("signedIn");
+      // An unlock is a session that never hits /auth/login - report it so the
+      // admin Analytics count people who use the app daily, not just sign-ins.
+      api.trackOpen();
     }
     return result;
   }

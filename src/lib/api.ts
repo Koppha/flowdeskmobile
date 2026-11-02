@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import Constants from "expo-constants";
 import { clearToken, getToken } from "./secure-storage";
 
@@ -40,6 +41,10 @@ async function req(path: string, options: RequestInit = {}) {
   // Lets the backend tell a mobile login apart from a web login for the
   // admin Analytics tab - see auth.routes.ts's trackMobileLoginIfNeeded().
   headers["X-Flowdesk-Client"] = "mobile";
+  // Which app version / platform made the call - Analytics shows who is on
+  // which release.
+  headers["X-Flowdesk-App-Version"] = Constants.expoConfig?.version ?? "";
+  headers["X-Flowdesk-Platform"] = Platform.OS;
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API}${path}`, { ...options, headers });
@@ -158,6 +163,11 @@ export const api = {
 
   registerPushToken: (expoPushToken: string) =>
     req("/auth/push-token", { method: "POST", body: JSON.stringify({ expoPushToken }) }),
+
+  /** Admin Analytics: the app was opened/unlocked. Fire-and-forget - never blocks or errors the app. */
+  trackOpen: () => {
+    req("/mobile-app/events", { method: "POST", body: JSON.stringify({ type: "OPEN" }) }).catch(() => {});
+  },
 
   mobileConfig: () =>
     req("/admin/mobile-config") as Promise<{
