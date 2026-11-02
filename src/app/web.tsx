@@ -3,7 +3,7 @@ import ServerPage from "@/components/ServerPage";
 
 // Opens any screen of the server-built page by name - /web?go=phone - so the
 // server can add screens (and point pushes at them) without an app release.
-const TITLES: Record<string, string> = { phone: "Phone number" };
+const TITLES: Record<string, string> = { phone: "Phone number", signature: "Saved signature", support: "Help & support" };
 
 export default function WebScreen() {
   const { go } = useLocalSearchParams<{ go?: string }>();

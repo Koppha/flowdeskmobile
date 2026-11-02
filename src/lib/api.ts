@@ -173,6 +173,7 @@ export const api = {
     req("/admin/mobile-config") as Promise<{
       modules: Partial<Record<ModuleKey, boolean>>;
       tabs: { key: "home" | "inbox" | "profile"; enabled: boolean }[];
+      webTiles?: WebTile[];
     }>,
 
   // --- Creating advances & clearances (same endpoints and payloads as the
@@ -223,6 +224,12 @@ export const api = {
 
 // `createAdvance` / `createClearance` gate the "New" buttons; `advances` /
 // `clearances` only show/hide the Home tiles that list existing requests.
+/**
+ * A Home tile for a process built on the server: opens /web?go=<go>. Icon is a
+ * name from Home's WEB_TILE_ICONS, color one of the theme's tile colours.
+ */
+export type WebTile = { go: string; label: string; icon?: string; color?: string };
+
 export type ModuleKey =
   | "advances"
   | "clearances"

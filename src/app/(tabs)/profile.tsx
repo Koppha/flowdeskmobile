@@ -246,14 +246,19 @@ export default function ProfileScreen() {
 
         <Text style={styles.sectionLabel}>Account</Text>
         <View style={styles.card}>
-          <View style={styles.row}>
+          {/* Both are server pages: My signature is Sign a Document's own
+              saved-signature screen (shared with the web); Help & support is
+              the chat with the admins. */}
+          <TouchableOpacity style={styles.row} onPress={() => router.push({ pathname: "/web", params: { go: "signature" } })} accessibilityRole="button">
             <PenLine size={18} color={colors.muted} strokeWidth={1.8} />
             <Text style={styles.rowLabel}>Saved signature</Text>
-          </View>
-          <View style={[styles.row, styles.rowBorder]}>
+            <ChevronRight size={18} color={colors.muted} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.row, styles.rowBorder]} onPress={() => router.push({ pathname: "/web", params: { go: "support" } })} accessibilityRole="button">
             <CircleHelp size={18} color={colors.muted} strokeWidth={1.8} />
             <Text style={styles.rowLabel}>Help &amp; support</Text>
-          </View>
+            <ChevronRight size={18} color={colors.muted} />
+          </TouchableOpacity>
         </View>
 
         {__DEV__ && (

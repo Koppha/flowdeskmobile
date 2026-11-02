@@ -1,13 +1,24 @@
 import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { CheckCircle2, ClipboardList, Clock3, FileSignature, GitBranch, Radio, Wrench, type LucideIcon } from "lucide-react-native";
+import {
+  Briefcase, Calendar, CheckCircle2, CircleHelp, ClipboardList, Clock3, FileSignature, GitBranch, LayoutGrid, Megaphone, MessageCircle,
+  Radio, ShieldCheck, Truck, Users, Wrench, type LucideIcon
+} from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
-import { api, type InboxItem, type ModuleKey } from "@/lib/api";
+import { api, type InboxItem, type ModuleKey, type WebTile } from "@/lib/api";
 import ModuleTile from "@/components/ModuleTile";
 import { DEFAULT_MODULES, isDocTypeEnabled, mergeModules } from "@/lib/mobile-modules";
 import { Grid, useLayout } from "@/components/layout";
 import { layout, makeStyles, radii, spacing, useTheme, type Colors } from "@/theme";
+
+// Icons a server-defined tile may use (by name) - anything else falls back to a grid.
+const WEB_TILE_ICONS: Record<string, LucideIcon> = {
+  wrench: Wrench, "file-signature": FileSignature, "clipboard-list": ClipboardList, "check-circle": CheckCircle2, clock: Clock3,
+  radio: Radio, "git-branch": GitBranch, grid: LayoutGrid, briefcase: Briefcase, calendar: Calendar, truck: Truck, users: Users,
+  "shield-check": ShieldCheck, megaphone: Megaphone, help: CircleHelp, "message-circle": MessageCircle
+};
+const TILE_COLORS: (keyof Colors)[] = ["accent", "good", "warn", "bad", "info", "purple"];
 
 const MODULE_DEFS: { key: ModuleKey; label: string; icon: LucideIcon; color: keyof Colors; bg: keyof Colors; route?: "/my-advances" | "/my-clearances" | "/sign" | "/maintenance" }[] = [
   { key: "advances", label: "Advances", icon: ClipboardList, color: "accent", bg: "accentSoft", route: "/my-advances" },
@@ -27,6 +38,9 @@ export default function HomeScreen() {
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [inProgressCount, setInProgressCount] = useState<number | null>(null);
   const [enabledModules, setEnabledModules] = useState<Record<ModuleKey, boolean>>(DEFAULT_MODULES);
+  // Processes built on the server (screens of the server page) - new ones
+  // appear here with no app release.
+  const [webTiles, setWebTiles] = useState<WebTile[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
@@ -38,6 +52,7 @@ export default function HomeScreen() {
       const advances = Array.isArray(advancesRes) ? advancesRes : advancesRes.items || [];
       setInProgressCount(advances.filter((a: any) => !["DRAFT", "PAID", "CANCELLED", "REJECTED"].includes(a.status)).length);
       if (configRes?.modules) setEnabledModules(mergeModules(configRes.modules));
+      setWebTiles(Array.isArray(configRes?.webTiles) ? configRes.webTiles.filter((t) => /^[a-z0-9-]{1,40}$/.test(t.go) && t.label) : []);
     } catch {
       // Home's stats/module list are a convenience, not critical - leave
       // stats blank and fall back to defaults rather than blocking the
@@ -99,6 +114,19 @@ export default function HomeScreen() {
               onPress={m.route ? () => router.push(m.route!) : undefined}
             />
           ))}
+          {webTiles.map((t) => {
+            const color: keyof Colors = TILE_COLORS.includes(t.color as keyof Colors) ? (t.color as keyof Colors) : "accent";
+            return (
+              <ModuleTile
+                key={`web-${t.go}`}
+                icon={WEB_TILE_ICONS[t.icon || ""] || LayoutGrid}
+                label={t.label}
+                iconColor={colors[color]}
+                iconBg={colors[`${color}Soft` as keyof Colors]}
+                onPress={() => router.push({ pathname: "/web", params: { go: t.go } })}
+              />
+            );
+          })}
         </Grid>
       </View>
     </ScrollView>

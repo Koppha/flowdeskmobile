@@ -84,6 +84,8 @@ export default function ServerPage({ section, docId, requestId, start }: { secti
   // A header button the page asks for (e.g. Maintenance's "+ New"), drawn
   // exactly like My Advances' - the page decides when and what it opens.
   const [headerAction, setHeaderAction] = useState<{ label: string; hash: string } | null>(null);
+  // The page can name its own screen, so new server screens need no app change.
+  const [pageTitle, setPageTitle] = useState<string | null>(null);
 
   useEffect(() => {
     void getToken().then(setToken);
@@ -118,6 +120,8 @@ export default function ServerPage({ section, docId, requestId, start }: { secti
       pickPhotos(source, max)
         .catch(() => [] as NativePhoto[])
         .then((photos) => webRef.current?.injectJavaScript(`window.__flowdeskPhotos && window.__flowdeskPhotos(${JSON.stringify({ id, photos })}); true;`));
+    } else if (msg.type === "title") {
+      setPageTitle(typeof msg.title === "string" && msg.title.trim() ? msg.title.trim().slice(0, 40) : null);
     } else if (msg.type === "headerAction") {
       // Only an in-page route (#/...) and a short label - the page can't make
       // the header navigate anywhere else.
@@ -167,13 +171,14 @@ export default function ServerPage({ section, docId, requestId, start }: { secti
     // A named screen to open first (/web?go=phone).
     start: start || undefined,
     // What this build can do for the page; older builds send none.
-    capabilities: ["headerAction", "nativePhotos"]
+    capabilities: ["headerAction", "nativePhotos", "title"]
   });
 
   return (
     <>
     <Stack.Screen
       options={{
+        ...(pageTitle ? { title: pageTitle } : {}),
         headerRight: headerAction
           ? () => (
               <TouchableOpacity
