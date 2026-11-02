@@ -4,6 +4,7 @@ import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { Plus } from "lucide-react-native";
 import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import * as ImagePicker from "expo-image-picker";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 import { useAuth } from "@/context/auth-context";
 import { API } from "@/lib/api";
@@ -43,6 +44,31 @@ async function sharePdf(path: string, title: string, token: string) {
   await Sharing.shareAsync(file.uri, { mimeType: "application/pdf", dialogTitle: title, UTI: "com.adobe.pdf" });
 }
 
+// The WebView's own <input type="file"> doesn't reliably hand pictures back
+// on Android, so the page asks the app instead: the native camera / gallery
+// (same picker as Clearance receipts), returned to the page as data URLs.
+type NativePhoto = { dataUrl: string; name: string };
+
+async function pickPhotos(source: "camera" | "library", max: number): Promise<NativePhoto[]> {
+  const options: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 0.6, base64: true };
+  let result: ImagePicker.ImagePickerResult;
+  if (source === "camera") {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Camera", "Allow FlowDesk to use the camera in your phone's settings to take photos.");
+      return [];
+    }
+    result = await ImagePicker.launchCameraAsync(options);
+  } else {
+    result = await ImagePicker.launchImageLibraryAsync({ ...options, allowsMultipleSelection: max > 1, selectionLimit: Math.max(1, max) });
+  }
+  if (result.canceled) return [];
+  return result.assets
+    .filter((a) => a.base64)
+    .slice(0, Math.max(1, max))
+    .map((a, i) => ({ dataUrl: `data:${a.mimeType || "image/jpeg"};base64,${a.base64}`, name: a.fileName || `photo-${Date.now()}-${i}.jpg` }));
+}
+
 export type ServerSection = "sign" | "maintenance";
 
 export default function ServerPage({ section, docId, requestId }: { section: ServerSection; docId?: string; requestId?: string }) {
@@ -76,7 +102,7 @@ export default function ServerPage({ section, docId, requestId }: { section: Ser
   );
 
   function onMessage(e: WebViewMessageEvent) {
-    let msg: { type?: string; path?: string; title?: string; label?: string | null; hash?: string } = {};
+    let msg: { type?: string; path?: string; title?: string; label?: string | null; hash?: string; id?: string; source?: string; max?: number } = {};
     try {
       msg = JSON.parse(e.nativeEvent.data);
     } catch {
@@ -84,7 +110,15 @@ export default function ServerPage({ section, docId, requestId }: { section: Ser
     }
     if (msg.type === "sessionExpired") void logout();
     else if (msg.type === "close") router.back();
-    else if (msg.type === "headerAction") {
+    else if (msg.type === "pickPhotos" && typeof msg.id === "string") {
+      const id = msg.id;
+      const source = msg.source === "camera" ? "camera" : "library";
+      const max = Math.min(Math.max(Number(msg.max) || 1, 1), 5);
+      // Always answer (an empty list when cancelled), so the page never waits forever.
+      pickPhotos(source, max)
+        .catch(() => [] as NativePhoto[])
+        .then((photos) => webRef.current?.injectJavaScript(`window.__flowdeskPhotos && window.__flowdeskPhotos(${JSON.stringify({ id, photos })}); true;`));
+    } else if (msg.type === "headerAction") {
       // Only an in-page route (#/...) and a short label - the page can't make
       // the header navigate anywhere else.
       const ok = typeof msg.label === "string" && msg.label.length <= 20 && typeof msg.hash === "string" && msg.hash.startsWith("#/");
@@ -131,7 +165,7 @@ export default function ServerPage({ section, docId, requestId }: { section: Ser
     docId: docId || undefined,
     requestId: requestId || undefined,
     // What this build can do for the page; older builds send none.
-    capabilities: ["headerAction"]
+    capabilities: ["headerAction", "nativePhotos"]
   });
 
   return (
