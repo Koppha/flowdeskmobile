@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Image, KeyboardAvoidingView, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
 import { useUnlockMethod } from "@/lib/biometrics";
 import { makeStyles, radii, spacing, useTheme } from "@/theme";
@@ -10,6 +11,7 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const method = useUnlockMethod();
@@ -53,14 +55,29 @@ export default function LoginScreen() {
             keyboardType="email-address"
             style={styles.input}
           />
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Enter your password"
-            placeholderTextColor={colors.muted}
-            secureTextEntry
-            style={styles.input}
-          />
+          <View style={styles.passwordWrap}>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter your password"
+              placeholderTextColor={colors.muted}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[styles.input, styles.passwordInput]}
+              onSubmitEditing={handleSubmit}
+              returnKeyType="go"
+            />
+            <TouchableOpacity
+              style={styles.eye}
+              onPress={() => setShowPassword((v) => !v)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={20} color={colors.muted} /> : <Eye size={20} color={colors.muted} />}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {error && <Text style={styles.error}>{error}</Text>}
@@ -103,6 +120,9 @@ const useStyles = makeStyles((colors) => ({
     backgroundColor: colors.paper1,
     color: colors.ink
   },
+  passwordWrap: { width: "100%", justifyContent: "center" },
+  passwordInput: { paddingRight: 48 },
+  eye: { position: "absolute", right: 0, top: 0, bottom: 0, width: 48, alignItems: "center", justifyContent: "center" },
   error: { color: colors.bad, fontSize: 12.5, marginTop: spacing.md, textAlign: "center" },
   button: {
     width: "100%",
