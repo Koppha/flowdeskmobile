@@ -8,6 +8,7 @@ import {
 import { useAuth } from "@/context/auth-context";
 import { api, type InboxItem, type ModuleKey, type WebTile } from "@/lib/api";
 import ModuleTile from "@/components/ModuleTile";
+import UpdateBanner from "@/components/UpdateBanner";
 import { DEFAULT_MODULES, isDocTypeEnabled, mergeModules } from "@/lib/mobile-modules";
 import { Grid, useLayout } from "@/components/layout";
 import { layout, makeStyles, radii, spacing, useTheme, type Colors } from "@/theme";
@@ -88,6 +89,7 @@ export default function HomeScreen() {
         </View>
         <Text style={styles.greeting}>Good afternoon, {firstName}</Text>
         <Text style={styles.subGreeting}>Here&apos;s what&apos;s moving today</Text>
+        <UpdateBanner />
       </View>
 
       <View style={[styles.statsRow, padX]}>

@@ -73,8 +73,10 @@ const assetBaseUrl = manifestUrl.replace(/\/manifest$/, "/assets");
 const apiUrl = process.env.FLOWDESK_API_URL || appJson.expo?.extra?.apiUrl;
 const email = process.env.FLOWDESK_ADMIN_EMAIL;
 const password = process.env.FLOWDESK_ADMIN_PASSWORD;
-if ((!email || !password) && !process.argv.includes("--dry-run")) {
-  console.error("Set FLOWDESK_ADMIN_EMAIL and FLOWDESK_ADMIN_PASSWORD (an ADMIN account) in the environment.");
+// Or an ADMIN session token instead of a password.
+const presetToken = process.env.FLOWDESK_TOKEN;
+if (!presetToken && (!email || !password) && !process.argv.includes("--dry-run")) {
+  console.error("Set FLOWDESK_ADMIN_EMAIL and FLOWDESK_ADMIN_PASSWORD (an ADMIN account), or FLOWDESK_TOKEN, in the environment.");
   process.exit(1);
 }
 const message = arg("message") || "";
@@ -126,14 +128,17 @@ async function main() {
       return;
     }
 
-    console.log(`Signing in to ${apiUrl} as ${email}…`);
-    const loginRes = await fetch(`${apiUrl}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
-    });
-    if (!loginRes.ok) throw new Error(`Login failed: ${loginRes.status} ${await loginRes.text()}`);
-    const { token } = await loginRes.json();
+    let token = presetToken;
+    if (!token) {
+      console.log(`Signing in to ${apiUrl} as ${email}…`);
+      const loginRes = await fetch(`${apiUrl}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      if (!loginRes.ok) throw new Error(`Login failed: ${loginRes.status} ${await loginRes.text()}`);
+      ({ token } = await loginRes.json());
+    }
 
     const form = new FormData();
     form.append("platform", PLATFORM);

@@ -169,6 +169,12 @@ export const api = {
   registerPushToken: (expoPushToken: string) =>
     req("/auth/push-token", { method: "POST", body: JSON.stringify({ expoPushToken }) }),
 
+  /** The newest app release on the portal (in-app update check). */
+  latestBuild: () =>
+    req("/mobile-app/latest?platform=ANDROID") as Promise<{ build: { version: string; sizeBytes: number | null; uploadedAt: string } | null }>,
+  /** A two-minute token for downloading the release (GET /mobile-app/download?token=). */
+  downloadToken: () => req("/mobile-app/download-token") as Promise<{ token: string }>,
+
   /** Admin Analytics: the app was opened/unlocked. Fire-and-forget - never blocks or errors the app. */
   trackOpen: () => {
     req("/mobile-app/events", { method: "POST", body: JSON.stringify({ type: "OPEN" }) }).catch(() => {});
