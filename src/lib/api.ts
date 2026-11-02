@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+import * as Device from "expo-device";
 import { clearToken, getToken } from "./secure-storage";
 
 // app.json's extra.apiUrl defaults to UAT (through the external proxy, so it
@@ -45,6 +46,10 @@ async function req(path: string, options: RequestInit = {}) {
   // which release.
   headers["X-Flowdesk-App-Version"] = Constants.expoConfig?.version ?? "";
   headers["X-Flowdesk-Platform"] = Platform.OS;
+  // The phone, for the admin Analytics "devices in use" (backend mobileAppUsage.ts).
+  if (Device.modelName) headers["X-Flowdesk-Device-Model"] = Device.modelName;
+  if (Device.brand || Device.manufacturer) headers["X-Flowdesk-Device-Brand"] = (Device.brand || Device.manufacturer) as string;
+  if (Device.osVersion) headers["X-Flowdesk-OS-Version"] = Device.osVersion;
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API}${path}`, { ...options, headers });
