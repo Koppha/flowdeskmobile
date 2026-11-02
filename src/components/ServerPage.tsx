@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, BackHandler, Linking, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
+import { Plus } from "lucide-react-native";
 import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
@@ -54,6 +55,9 @@ export default function ServerPage({ section, docId, requestId }: { section: Ser
   const [token, setToken] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // A header button the page asks for (e.g. Maintenance's "+ New"), drawn
+  // exactly like My Advances' - the page decides when and what it opens.
+  const [headerAction, setHeaderAction] = useState<{ label: string; hash: string } | null>(null);
 
   useEffect(() => {
     void getToken().then(setToken);
@@ -72,7 +76,7 @@ export default function ServerPage({ section, docId, requestId }: { section: Ser
   );
 
   function onMessage(e: WebViewMessageEvent) {
-    let msg: { type?: string; path?: string; title?: string } = {};
+    let msg: { type?: string; path?: string; title?: string; label?: string | null; hash?: string } = {};
     try {
       msg = JSON.parse(e.nativeEvent.data);
     } catch {
@@ -80,6 +84,12 @@ export default function ServerPage({ section, docId, requestId }: { section: Ser
     }
     if (msg.type === "sessionExpired") void logout();
     else if (msg.type === "close") router.back();
+    else if (msg.type === "headerAction") {
+      // Only an in-page route (#/...) and a short label - the page can't make
+      // the header navigate anywhere else.
+      const ok = typeof msg.label === "string" && msg.label.length <= 20 && typeof msg.hash === "string" && msg.hash.startsWith("#/");
+      setHeaderAction(ok ? { label: msg.label as string, hash: msg.hash as string } : null);
+    }
     else if (msg.type === "sharePdf" && msg.path && token) {
       sharePdf(msg.path, msg.title || "Signed document", token).catch(() =>
         Alert.alert("Couldn't download", "The document couldn't be downloaded. Check your connection and try again.")
@@ -114,9 +124,35 @@ export default function ServerPage({ section, docId, requestId }: { section: Ser
     );
   }
 
-  const injected = JSON.stringify({ token, theme: isDark ? "dark" : "light", section, docId: docId || undefined, requestId: requestId || undefined });
+  const injected = JSON.stringify({
+    token,
+    theme: isDark ? "dark" : "light",
+    section,
+    docId: docId || undefined,
+    requestId: requestId || undefined,
+    // What this build can do for the page; older builds send none.
+    capabilities: ["headerAction"]
+  });
 
   return (
+    <>
+    <Stack.Screen
+      options={{
+        headerRight: headerAction
+          ? () => (
+              <TouchableOpacity
+                onPress={() => webRef.current?.injectJavaScript(`location.hash = ${JSON.stringify(headerAction.hash)}; true;`)}
+                hitSlop={10}
+                style={styles.headerButton}
+                accessibilityLabel={headerAction.label}
+              >
+                <Plus size={18} color={colors.accent} />
+                <Text style={styles.headerLabel}>{headerAction.label}</Text>
+              </TouchableOpacity>
+            )
+          : undefined
+      }}
+    />
     <WebView
       key={attempt}
       ref={webRef}
@@ -141,6 +177,7 @@ export default function ServerPage({ section, docId, requestId }: { section: Ser
       setSupportMultipleWindows={false}
       allowsBackForwardNavigationGestures
     />
+    </>
   );
 }
 
@@ -149,5 +186,8 @@ const useStyles = makeStyles((colors) => ({
   overlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   message: { color: colors.muted, textAlign: "center", marginBottom: spacing.lg },
   retry: { backgroundColor: colors.accent, borderRadius: 10, paddingHorizontal: spacing.xl, paddingVertical: spacing.md },
-  retryLabel: { color: "#fff", fontWeight: "700" }
+  retryLabel: { color: "#fff", fontWeight: "700" },
+  // Same as my-advances.tsx newButton / newLabel.
+  headerButton: { flexDirection: "row", alignItems: "center", gap: 4 },
+  headerLabel: { color: colors.accent, fontWeight: "700", fontSize: 15 }
 }));
