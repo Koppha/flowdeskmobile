@@ -34,11 +34,10 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 // same bearer-token header, same error shape - so the mobile app talks to
 // the identical backend-v2 endpoints the web app already uses, no new API
 // surface (see the FlowDesk Mobile write-up's "How it fits" section).
-async function req(path: string, options: RequestInit = {}) {
+/** The headers every call to the backend carries (also used by the AI Assistant's streaming chat). */
+export async function clientHeaders(): Promise<Record<string, string>> {
   const token = await getToken();
-  const headers: any = { Accept: "application/json", ...(options.headers || {}) };
-  // Multipart uploads (receipts) must let fetch set its own boundary header.
-  if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
+  const headers: Record<string, string> = {};
   // Lets the backend tell a mobile login apart from a web login for the
   // admin Analytics tab - see auth.routes.ts's trackMobileLoginIfNeeded().
   headers["X-Flowdesk-Client"] = "mobile";
@@ -51,16 +50,28 @@ async function req(path: string, options: RequestInit = {}) {
   if (Device.brand || Device.manufacturer) headers["X-Flowdesk-Device-Brand"] = (Device.brand || Device.manufacturer) as string;
   if (Device.osVersion) headers["X-Flowdesk-OS-Version"] = Device.osVersion;
   if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+/** A 401 on a signed-in call: the session is gone - sign out and go to Login. */
+export async function handleUnauthorized() {
+  await clearToken();
+  onUnauthorized?.();
+}
+
+async function req(path: string, options: RequestInit = {}) {
+  const base = await clientHeaders();
+  const token = base.Authorization;
+  const headers: any = { Accept: "application/json", ...(options.headers || {}), ...base };
+  // Multipart uploads (receipts) must let fetch set its own boundary header.
+  if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
 
   const res = await fetch(`${API}${path}`, { ...options, headers });
   const json = await res.json().catch(() => ({}));
 
   // Only for authenticated calls - a 401 from /auth/login is just wrong
   // credentials and must surface as an error on the Login screen.
-  if (res.status === 401 && token) {
-    await clearToken();
-    onUnauthorized?.();
-  }
+  if (res.status === 401 && token) await handleUnauthorized();
   if (!res.ok) {
     const error = new Error(formatApiError(json, res.statusText)) as Error & { status?: number };
     error.status = res.status;
@@ -230,7 +241,19 @@ export const api = {
   },
   deleteClaimReceipt: (id: string, receiptId: string) => req(`/claims/${id}/receipts/${receiptId}`, { method: "DELETE" }),
   submitClaim: (id: string) =>
-    req(`/claims/${id}/submit`, { method: "POST", body: JSON.stringify({}) }) as Promise<{ ok: boolean; status: string }>
+    req(`/claims/${id}/submit`, { method: "POST", body: JSON.stringify({}) }) as Promise<{ ok: boolean; status: string }>,
+
+  // --- AI Assistant (backend-v2 ai.routes.ts). The service, model, daily
+  // limit and who may use it are all set on the portal (Settings > AI
+  // Assistant, Roles & Permissions) - nothing about the AI lives in the app.
+  // The chat itself streams: see src/lib/assistant.ts.
+  assistantStatus: () =>
+    req("/ai/assistant/status") as Promise<{ configured: boolean; enabled?: boolean; daily_limit: number; used_today: number }>,
+  assistantConversations: () =>
+    req("/ai/assistant/conversations") as Promise<{ items: { id: string; title: string | null; updated_at: string }[] }>,
+  assistantConversation: (id: string) =>
+    req(`/ai/assistant/conversations/${id}`) as Promise<{ messages?: { role: "user" | "assistant"; text: string }[] }>,
+  deleteAssistantConversation: (id: string) => req(`/ai/assistant/conversations/${id}`, { method: "DELETE" })
 };
 
 // `createAdvance` / `createClearance` gate the "New" buttons; `advances` /

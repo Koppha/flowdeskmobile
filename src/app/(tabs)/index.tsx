@@ -3,7 +3,7 @@ import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   Briefcase, Calendar, CheckCircle2, CircleHelp, ClipboardList, Clock3, FileSignature, GitBranch, LayoutGrid, Megaphone, MessageCircle,
-  Radio, ShieldCheck, Truck, Users, Wrench, type LucideIcon
+  Radio, ShieldCheck, Sparkles, Truck, Users, Wrench, type LucideIcon
 } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
 import { api, type InboxItem, type ModuleKey, type WebTile } from "@/lib/api";
@@ -43,8 +43,12 @@ export default function HomeScreen() {
   // appear here with no app release.
   const [webTiles, setWebTiles] = useState<WebTile[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  // The AI Assistant entry shows only while the portal has it set up, switched
+  // on, and allowed for this person (Settings > AI Assistant, Roles & Permissions).
+  const [assistantReady, setAssistantReady] = useState(false);
 
   const load = useCallback(async () => {
+    api.assistantStatus().then((s) => setAssistantReady(Boolean(s?.configured))).catch(() => setAssistantReady(false));
     try {
       const [inboxRes, advancesRes, configRes] = await Promise.all([api.inbox(), api.myAdvances(), api.mobileConfig()]);
       const items: InboxItem[] = inboxRes.items || [];
@@ -90,6 +94,12 @@ export default function HomeScreen() {
         <Text style={styles.greeting}>Good afternoon, {firstName}</Text>
         <Text style={styles.subGreeting}>Here&apos;s what&apos;s moving today</Text>
         <UpdateBanner />
+        {assistantReady && (
+          <TouchableOpacity style={styles.askBar} onPress={() => router.push("/assistant")} accessibilityRole="button">
+            <Sparkles size={18} color={colors.accent} />
+            <Text style={styles.askText}>Ask FlowDesk AI anything…</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={[styles.statsRow, padX]}>
@@ -143,6 +153,8 @@ const useStyles = makeStyles((colors) => ({
   brandLabel: { fontSize: 15, fontWeight: "700", color: colors.ink },
   greeting: { marginTop: 12, fontSize: 22, fontWeight: "700", color: colors.ink },
   subGreeting: { fontSize: 13, color: colors.muted, marginTop: 2 },
+  askBar: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md, paddingVertical: 11, paddingHorizontal: 14, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.accentSoft },
+  askText: { fontSize: 14, color: colors.muted, flex: 1 },
   statsRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   statCard: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, padding: spacing.md },
   statValue: { fontSize: 22, fontWeight: "700", color: colors.ink },

@@ -80,6 +80,7 @@ function RootNavigation() {
         <Stack.Screen name="sign" options={{ headerShown: true, title: "Sign a Document" }} />
         <Stack.Screen name="maintenance" options={{ headerShown: true, title: "Maintenance" }} />
         <Stack.Screen name="web" options={{ headerShown: true, title: "" }} />
+        <Stack.Screen name="assistant" options={{ headerShown: true, title: "AI Assistant" }} />
         <Stack.Screen name="confirmed" />
       </Stack>
       {/* Re-locked after time in the background: cover the current screen
