@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowUp, Check, CircleHelp, FileText, History, Inbox, MapPin, Smartphone, Sparkles, SquarePen, Trash2, type LucideIcon } from "lucide-react-native";
+import { ArrowUp, Check, CircleHelp, Compass, FileText, History, Inbox, MapPin, Sparkles, SquarePen, Trash2, type LucideIcon } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
 import { streamAssistantChat } from "@/lib/assistant";
@@ -26,7 +26,7 @@ const SUGGESTIONS: Suggestion[] = [
   { icon: MapPin, title: "Where is my latest advance?", hint: "Who it's with and since when", ask: "Where is my latest advance?" },
   { icon: CircleHelp, title: "How do I clear an advance?", hint: "Step-by-step help", ask: "How do I clear an advance?" }
 ];
-const ADMIN_SUGGESTION: Suggestion = { icon: Smartphone, title: "How many people use the app?", hint: "Users and mobile app usage", ask: "How many users are active, and how many use the mobile app?" };
+const ADMIN_SUGGESTION: Suggestion = { icon: Compass, title: "What can I do in FlowDesk?", hint: "A tour of what's available to you", ask: "What can I do in FlowDesk? Give me an overview of what's available to me." };
 
 export default function AssistantScreen() {
   const { colors } = useTheme();
