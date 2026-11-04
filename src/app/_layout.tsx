@@ -34,12 +34,12 @@ function navigationTheme(colors: Colors, isDark: boolean): Theme {
   };
 }
 
-const AUTH_SCREENS = ["login", "unlock", "push-permission"];
+const AUTH_SCREENS = ["login", "unlock", "push-permission", "complete-profile"];
 
 function RootNavigation() {
   const { colors } = useTheme();
   const styles = useStyles();
-  const { status, justLoggedIn, sessionLocked } = useAuth();
+  const { status, justLoggedIn, sessionLocked, profileComplete } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const top = segments[0] as string | undefined;
@@ -51,10 +51,13 @@ function RootNavigation() {
       router.replace("/login");
     } else if (status === "locked" && top !== "unlock") {
       router.replace("/unlock");
-    } else if (status === "signedIn" && (top === "login" || top === "unlock" || top === undefined)) {
+    } else if (status === "signedIn" && !profileComplete) {
+      // First sign-in: nothing else until the profile is filled in (as on the web portal).
+      if (top !== "complete-profile") router.replace("/complete-profile");
+    } else if (status === "signedIn" && (top === "login" || top === "unlock" || top === "complete-profile" || top === undefined)) {
       router.replace(justLoggedIn ? "/push-permission" : "/(tabs)");
     }
-  }, [status, justLoggedIn, top, router]);
+  }, [status, justLoggedIn, profileComplete, top, router]);
 
   if (status === "loading") {
     return (
@@ -70,6 +73,7 @@ function RootNavigation() {
         <Stack.Screen name="login" />
         <Stack.Screen name="unlock" />
         <Stack.Screen name="push-permission" />
+        <Stack.Screen name="complete-profile" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="my-advances" options={{ headerShown: true, title: "My Advance Requests" }} />
         <Stack.Screen name="my-clearances" options={{ headerShown: true, title: "My Clearances" }} />
@@ -81,6 +85,7 @@ function RootNavigation() {
         <Stack.Screen name="maintenance" options={{ headerShown: true, title: "Maintenance" }} />
         <Stack.Screen name="web" options={{ headerShown: true, title: "" }} />
         <Stack.Screen name="assistant" options={{ headerShown: true, title: "AI Assistant" }} />
+        <Stack.Screen name="my-team" options={{ headerShown: true, title: "My Team" }} />
         <Stack.Screen name="confirmed" />
       </Stack>
       {/* Re-locked after time in the background: cover the current screen

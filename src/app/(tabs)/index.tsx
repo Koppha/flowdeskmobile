@@ -6,7 +6,7 @@ import {
   Radio, ShieldCheck, Sparkles, Truck, Users, Wrench, type LucideIcon
 } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
-import { api, type InboxItem, type ModuleKey, type WebTile } from "@/lib/api";
+import { api, TEAM_ROLES, type InboxItem, type ModuleKey, type WebTile } from "@/lib/api";
 import ModuleTile from "@/components/ModuleTile";
 import UpdateBanner from "@/components/UpdateBanner";
 import { DEFAULT_MODULES, isDocTypeEnabled, mergeModules } from "@/lib/mobile-modules";
@@ -21,14 +21,24 @@ const WEB_TILE_ICONS: Record<string, LucideIcon> = {
 };
 const TILE_COLORS: (keyof Colors)[] = ["accent", "good", "warn", "bad", "info", "purple"];
 
-const MODULE_DEFS: { key: ModuleKey; label: string; icon: LucideIcon; color: keyof Colors; bg: keyof Colors; route?: "/my-advances" | "/my-clearances" | "/sign" | "/maintenance" }[] = [
+const MODULE_DEFS: {
+  key: ModuleKey;
+  label: string;
+  icon: LucideIcon;
+  color: keyof Colors;
+  bg: keyof Colors;
+  route?: "/my-advances" | "/my-clearances" | "/sign" | "/maintenance" | "/my-team";
+  /** Only these roles see the tile (in addition to the admin switch). */
+  roles?: string[];
+}[] = [
   { key: "advances", label: "Advances", icon: ClipboardList, color: "accent", bg: "accentSoft", route: "/my-advances" },
   { key: "clearances", label: "Clearances", icon: CheckCircle2, color: "good", bg: "goodSoft", route: "/my-clearances" },
   { key: "overtime", label: "Overtime", icon: Clock3, color: "warn", bg: "warnSoft" },
   { key: "standby", label: "Standby", icon: Radio, color: "info", bg: "infoSoft" },
   { key: "customProcesses", label: "Custom Processes", icon: GitBranch, color: "purple", bg: "purpleSoft" },
   { key: "signADocument", label: "Sign a Document", icon: FileSignature, color: "accent", bg: "accentSoft", route: "/sign" },
-  { key: "maintenance", label: "Maintenance", icon: Wrench, color: "warn", bg: "warnSoft", route: "/maintenance" }
+  { key: "maintenance", label: "Maintenance", icon: Wrench, color: "warn", bg: "warnSoft", route: "/maintenance" },
+  { key: "myTeam", label: "My Team", icon: Users, color: "info", bg: "infoSoft", route: "/my-team", roles: TEAM_ROLES }
 ];
 
 export default function HomeScreen() {
@@ -116,7 +126,7 @@ export default function HomeScreen() {
       <View style={[styles.modulesSection, padX]}>
         <Text style={styles.sectionLabel}>Modules</Text>
         <Grid columns={isTablet ? 3 : 2}>
-          {MODULE_DEFS.filter((m) => enabledModules[m.key]).map((m) => (
+          {MODULE_DEFS.filter((m) => enabledModules[m.key] && (!m.roles || m.roles.includes(user?.role || ""))).map((m) => (
             <ModuleTile
               key={m.key}
               icon={m.icon}

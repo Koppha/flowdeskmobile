@@ -16,7 +16,8 @@ export const DEFAULT_MODULES: Record<ModuleKey, boolean> = {
   standby: false,
   customProcesses: false,
   signADocument: false,
-  maintenance: false
+  maintenance: false,
+  myTeam: false
 };
 
 // Dev builds only: start Metro with EXPO_PUBLIC_FORCE_CREATE=1 to try the

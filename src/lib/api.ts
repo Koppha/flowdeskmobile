@@ -253,8 +253,56 @@ export const api = {
     req("/ai/assistant/conversations") as Promise<{ items: { id: string; title: string | null; updated_at: string }[] }>,
   assistantConversation: (id: string) =>
     req(`/ai/assistant/conversations/${id}`) as Promise<{ messages?: { role: "user" | "assistant"; text: string }[] }>,
-  deleteAssistantConversation: (id: string) => req(`/ai/assistant/conversations/${id}`, { method: "DELETE" })
+  deleteAssistantConversation: (id: string) => req(`/ai/assistant/conversations/${id}`, { method: "DELETE" }),
+
+  // --- First sign-in: "Complete your profile" (same endpoint and payload as
+  // the web portal's profile screen - auth.routes.ts POST /complete-profile).
+  orgStructure: () => req("/auth/org-structure") as Promise<OrgStructure>,
+  employmentTypes: () => req("/auth/employment-types") as Promise<{ code: string; name: string; active: boolean }[]>,
+  completeProfile: (data: {
+    full_name: string;
+    department: string;
+    division_id: string | null;
+    section_id: string | null;
+    team_id: string | null;
+    employment_type: string;
+    employee_no?: string;
+  }) => req("/auth/complete-profile", { method: "POST", body: JSON.stringify(data) }) as Promise<{ token: string }>,
+  updatePhone: (phone: string) => req("/auth/me/profile", { method: "PATCH", body: JSON.stringify({ phone }) }),
+
+  /** Managers: their direct reports (reporting-lines.routes.ts GET /my-team). */
+  myTeam: () => req("/reporting-lines/my-team") as Promise<MyTeamResponse>
 };
+
+export type OrgStructure = {
+  divisions?: { id: string; name: string; active?: boolean }[];
+  departments?: { id: string; name: string; division_id: string | null; active?: boolean; is_business_partner?: boolean; division_ids?: string[] }[];
+  sections?: { id: string; name: string; department_id: string | null; active?: boolean }[];
+  teams?: { id: string; name: string; section_id: string | null; active?: boolean }[];
+};
+
+export type TeamMember = {
+  id: string;
+  full_name: string | null;
+  email: string;
+  phone?: string | null;
+  title: string | null;
+  role: string;
+  department: string | null;
+  is_active: boolean;
+  pending_requests: number;
+  total_requests: number;
+  last_activity: string | null;
+};
+
+export type MyTeamResponse = {
+  members: TeamMember[];
+  active_delegation: { delegate_name?: string; from_date: string | null; to_date: string | null } | null;
+  recent_activity: { id: string; action: string; entity_type: string; created_at: string; actor_name: string }[];
+};
+
+/** Roles that have a team (same list the backend's /reporting-lines/my-team allows). */
+export const TEAM_ROLES = ["MANAGER", "HOD", "EXCO", "CEO", "ADMIN"];
 
 // `createAdvance` / `createClearance` gate the "New" buttons; `advances` /
 // `clearances` only show/hide the Home tiles that list existing requests.
@@ -273,7 +321,8 @@ export type ModuleKey =
   | "standby"
   | "customProcesses"
   | "signADocument"
-  | "maintenance";
+  | "maintenance"
+  | "myTeam";
 
 export type EmploymentType = "PERMANENT" | "INTERN" | "TEMPORARY" | string;
 

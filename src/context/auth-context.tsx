@@ -29,6 +29,12 @@ type AuthContextValue = {
   // Signed in, but re-locked after time in the background: the root layout
   // shows the Unlock screen as an overlay instead of navigating away.
   sessionLocked: boolean;
+  // False when the account has no profile yet (first sign-in): the root
+  // layout then shows Complete your profile before anything else, as the web
+  // portal does. Read from GET /auth/me at login/unlock.
+  profileComplete: boolean;
+  /** Complete your profile saved: switch to the new token (it carries the name and department). */
+  profileSaved: (token: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   unlock: () => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -46,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FlowDeskUser | null>(null);
   const [justLoggedIn, setJustLoggedIn] = useState(false);
   const [sessionLocked, setSessionLocked] = useState(false);
+  const [profileComplete, setProfileComplete] = useState(true);
   const statusRef = useRef(status);
   const backgroundedAt = useRef<number | null>(null);
 
@@ -115,18 +122,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, []);
 
+  // Checked before entering the app so a first sign-in goes straight to
+  // Complete your profile. If the check itself fails (e.g. offline), the
+  // person isn't blocked - the server still refuses requests from an
+  // incomplete profile.
+  async function checkProfile() {
+    try {
+      const me = await api.me();
+      setProfileComplete(Boolean(me.profile_completed));
+    } catch {
+      setProfileComplete(true);
+    }
+  }
+
   async function login(email: string, password: string) {
     const { token } = await api.login(email, password);
     await storeToken(token);
+    await checkProfile();
     setUser(decodeUserFromToken(token));
     setJustLoggedIn(true);
     setSessionLocked(false);
     setStatus("signedIn");
   }
 
+  async function profileSaved(token: string) {
+    await storeToken(token);
+    setUser(decodeUserFromToken(token));
+    setProfileComplete(true);
+  }
+
   async function unlock(): Promise<{ ok: boolean; error?: string }> {
     const result = await authenticate();
     if (result.ok) {
+      if (statusRef.current === "locked") await checkProfile();
       setSessionLocked(false);
       setStatus("signedIn");
       // An unlock is a session that never hits /auth/login - report it so the
@@ -142,9 +170,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo(
-    () => ({ status, user, justLoggedIn, sessionLocked, login, unlock, logout }),
+    () => ({ status, user, justLoggedIn, sessionLocked, profileComplete, profileSaved, login, unlock, logout }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [status, user, justLoggedIn, sessionLocked]
+    [status, user, justLoggedIn, sessionLocked, profileComplete]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
