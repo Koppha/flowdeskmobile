@@ -3,10 +3,10 @@ import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   Briefcase, Calendar, CheckCircle2, CircleHelp, ClipboardList, Clock3, FileSignature, GitBranch, LayoutGrid, Megaphone, MessageCircle,
-  Radio, ShieldCheck, Sparkles, Truck, Users, Wrench, type LucideIcon
+  Radio, ShieldCheck, Sparkles, Truck, UserCheck, Users, Wrench, type LucideIcon
 } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
-import { api, TEAM_ROLES, type InboxItem, type ModuleKey, type WebTile } from "@/lib/api";
+import { api, DELEGATING_ROLES, TEAM_ROLES, type InboxItem, type ModuleKey, type WebTile } from "@/lib/api";
 import ModuleTile from "@/components/ModuleTile";
 import UpdateBanner from "@/components/UpdateBanner";
 import { DEFAULT_MODULES, isDocTypeEnabled, mergeModules } from "@/lib/mobile-modules";
@@ -27,9 +27,11 @@ const MODULE_DEFS: {
   icon: LucideIcon;
   color: keyof Colors;
   bg: keyof Colors;
-  route?: "/my-advances" | "/my-clearances" | "/sign" | "/maintenance" | "/my-team";
+  route?: "/my-advances" | "/my-clearances" | "/sign" | "/maintenance" | "/my-team" | "/delegation";
   /** Only these roles see the tile (in addition to the admin switch). */
   roles?: string[];
+  /** Also shown, whatever the role, to anyone on a workflow step that allows delegation. */
+  orDelegationEligible?: boolean;
 }[] = [
   { key: "advances", label: "Advances", icon: ClipboardList, color: "accent", bg: "accentSoft", route: "/my-advances" },
   { key: "clearances", label: "Clearances", icon: CheckCircle2, color: "good", bg: "goodSoft", route: "/my-clearances" },
@@ -38,7 +40,8 @@ const MODULE_DEFS: {
   { key: "customProcesses", label: "Custom Processes", icon: GitBranch, color: "purple", bg: "purpleSoft" },
   { key: "signADocument", label: "Sign a Document", icon: FileSignature, color: "accent", bg: "accentSoft", route: "/sign" },
   { key: "maintenance", label: "Maintenance", icon: Wrench, color: "warn", bg: "warnSoft", route: "/maintenance" },
-  { key: "myTeam", label: "My Team", icon: Users, color: "info", bg: "infoSoft", route: "/my-team", roles: TEAM_ROLES }
+  { key: "myTeam", label: "My Team", icon: Users, color: "info", bg: "infoSoft", route: "/my-team", roles: TEAM_ROLES },
+  { key: "delegation", label: "Delegation", icon: UserCheck, color: "purple", bg: "purpleSoft", route: "/delegation", roles: DELEGATING_ROLES, orDelegationEligible: true }
 ];
 
 export default function HomeScreen() {
@@ -56,9 +59,16 @@ export default function HomeScreen() {
   // The AI Assistant entry shows only while the portal has it set up, switched
   // on, and allowed for this person (Settings > AI Assistant, Roles & Permissions).
   const [assistantReady, setAssistantReady] = useState(false);
+  // Delegation isn't only for managers: anyone assigned to a workflow step
+  // that allows delegation may delegate it (same rule as the portal's menu).
+  const [delegationEligible, setDelegationEligible] = useState(false);
+  const role = user?.role || "";
 
   const load = useCallback(async () => {
     api.assistantStatus().then((s) => setAssistantReady(Boolean(s?.configured))).catch(() => setAssistantReady(false));
+    if (!DELEGATING_ROLES.includes(role)) {
+      api.delegationEligibility().then((r) => setDelegationEligible(Boolean(r?.eligible))).catch(() => setDelegationEligible(false));
+    }
     try {
       const [inboxRes, advancesRes, configRes] = await Promise.all([api.inbox(), api.myAdvances(), api.mobileConfig()]);
       const items: InboxItem[] = inboxRes.items || [];
@@ -73,7 +83,7 @@ export default function HomeScreen() {
       // stats blank and fall back to defaults rather than blocking the
       // screen with an error state.
     }
-  }, []);
+  }, [role]);
 
   useFocusEffect(
     useCallback(() => {
@@ -126,7 +136,7 @@ export default function HomeScreen() {
       <View style={[styles.modulesSection, padX]}>
         <Text style={styles.sectionLabel}>Modules</Text>
         <Grid columns={isTablet ? 3 : 2}>
-          {MODULE_DEFS.filter((m) => enabledModules[m.key] && (!m.roles || m.roles.includes(user?.role || ""))).map((m) => (
+          {MODULE_DEFS.filter((m) => enabledModules[m.key] && (!m.roles || m.roles.includes(role) || (m.orDelegationEligible && delegationEligible))).map((m) => (
             <ModuleTile
               key={m.key}
               icon={m.icon}

@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Linking, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { useFocusEffect } from "expo-router";
-import { Mail, Phone, Search, UserCheck, Users } from "lucide-react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { ChevronRight, Mail, Phone, Search, UserCheck, Users } from "lucide-react-native";
 import { api, type MyTeamResponse, type TeamMember } from "@/lib/api";
+import { useMobileModules } from "@/lib/mobile-modules";
 import { formatWhen } from "@/lib/request-forms";
 import { Panes, useLayout } from "@/components/layout";
 import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
@@ -25,6 +26,8 @@ export default function MyTeamScreen() {
   const { colors } = useTheme();
   const styles = useStyles();
   const { gutter } = useLayout();
+  const router = useRouter();
+  const { modules } = useMobileModules();
   const [data, setData] = useState<MyTeamResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -127,15 +130,22 @@ export default function MyTeamScreen() {
         </View>
       </View>
 
-      {delegation && (
-        <View style={styles.delegation}>
+      {delegation ? (
+        <TouchableOpacity style={styles.delegation} onPress={() => modules.delegation && router.push("/delegation")} disabled={!modules.delegation} activeOpacity={0.8}>
           <UserCheck size={16} color={colors.info} />
           <Text style={styles.delegationText}>
             You&apos;re delegating approvals to <Text style={styles.bold}>{delegation.delegate_name || "someone"}</Text>
             {delegation.to_date ? ` until ${new Date(delegation.to_date).toLocaleDateString()}` : ""}.
           </Text>
-        </View>
-      )}
+          {modules.delegation && <ChevronRight size={16} color={colors.info} />}
+        </TouchableOpacity>
+      ) : modules.delegation ? (
+        <TouchableOpacity style={styles.delegateLink} onPress={() => router.push("/delegation")} accessibilityRole="button">
+          <UserCheck size={16} color={colors.accent} />
+          <Text style={styles.delegateLinkText}>Going away? Delegate my approvals</Text>
+          <ChevronRight size={16} color={colors.accent} />
+        </TouchableOpacity>
+      ) : null}
 
       <Panes left={memberList} right={activity} />
     </ScrollView>
@@ -201,6 +211,8 @@ const useStyles = makeStyles((colors) => ({
   statLabel: { fontSize: 11.5, color: colors.muted },
   delegation: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.infoSoft, borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.md },
   delegationText: { flex: 1, fontSize: 13, color: colors.ink, lineHeight: 18 },
+  delegateLink: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.md },
+  delegateLinkText: { flex: 1, fontSize: 13.5, fontWeight: "600", color: colors.accent },
   searchBox: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radii.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md },
   searchInput: { flex: 1, minHeight: 42, fontSize: 14.5, color: colors.ink },
   member: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, padding: spacing.md, marginBottom: spacing.sm },

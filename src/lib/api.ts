@@ -271,8 +271,48 @@ export const api = {
   updatePhone: (phone: string) => req("/auth/me/profile", { method: "PATCH", body: JSON.stringify({ phone }) }),
 
   /** Managers: their direct reports (reporting-lines.routes.ts GET /my-team). */
-  myTeam: () => req("/reporting-lines/my-team") as Promise<MyTeamResponse>
+  myTeam: () => req("/reporting-lines/my-team") as Promise<MyTeamResponse>,
+
+  // --- Delegating one's own approvals (auth.routes.ts /delegations, same as
+  // the portal's Manager Delegations). The server enforces who may delegate
+  // and to whom; /candidates returns exactly the people allowed.
+  delegations: () => req("/auth/delegations") as Promise<Delegation[]>,
+  delegationEligibility: () => req("/auth/delegations/eligibility") as Promise<{ eligible: boolean }>,
+  delegationCandidates: () =>
+    req("/auth/delegations/candidates") as Promise<{ id: string; full_name: string | null; email: string; employee_no: string | null; title: string | null; department: string | null }[]>,
+  createDelegation: (data: {
+    manager_id?: string;
+    delegate_id: string;
+    from_date?: string;
+    to_date?: string;
+    reason?: string;
+    comments?: string;
+    request_types?: string[];
+  }) => req("/auth/delegations", { method: "POST", body: JSON.stringify(data) }) as Promise<Delegation>,
+  endDelegation: (id: string) => req(`/auth/delegations/${id}/end`, { method: "POST", body: JSON.stringify({}) }) as Promise<Delegation>,
+  requestTypes: () => req("/request-types") as Promise<{ code: string; name: string; is_active?: boolean; status?: string }[]>
 };
+
+export type Delegation = {
+  id: string;
+  manager_id: string;
+  delegate_id: string;
+  delegate_name: string | null;
+  delegate_title?: string | null;
+  from_date: string | null;
+  to_date: string | null;
+  active: boolean;
+  reference: string | null;
+  reason: string | null;
+  comments: string | null;
+  ended_at?: string | null;
+  ended_by_name?: string | null;
+  created_at: string;
+  request_types: string[];
+};
+
+/** Roles that may always delegate (others only if on a workflow step that allows it). */
+export const DELEGATING_ROLES = ["MANAGER", "HOD", "EXCO", "CEO"];
 
 export type OrgStructure = {
   divisions?: { id: string; name: string; active?: boolean }[];
@@ -322,7 +362,8 @@ export type ModuleKey =
   | "customProcesses"
   | "signADocument"
   | "maintenance"
-  | "myTeam";
+  | "myTeam"
+  | "delegation";
 
 export type EmploymentType = "PERMANENT" | "INTERN" | "TEMPORARY" | string;
 

@@ -86,6 +86,8 @@ function RootNavigation() {
         <Stack.Screen name="web" options={{ headerShown: true, title: "" }} />
         <Stack.Screen name="assistant" options={{ headerShown: true, title: "AI Assistant" }} />
         <Stack.Screen name="my-team" options={{ headerShown: true, title: "My Team" }} />
+        <Stack.Screen name="delegation" options={{ headerShown: true, title: "Delegation" }} />
+        <Stack.Screen name="new-delegation" options={{ headerShown: true, title: "New Delegation" }} />
         <Stack.Screen name="confirmed" />
       </Stack>
       {/* Re-locked after time in the background: cover the current screen
