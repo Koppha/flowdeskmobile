@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { CheckSquare, Square } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
@@ -8,6 +8,7 @@ import { DELEGATION_TYPES } from "@/lib/delegations";
 import { todayIso } from "@/lib/request-forms";
 import { DateInput, Field, Input, PrimaryButton, Section, Select, type SelectOption, useFormStyles } from "@/components/form";
 import { useLayout } from "@/components/layout";
+import { KeyboardAvoider, KeyboardScrollView } from "@/components/keyboard";
 import { makeStyles, spacing, useTheme } from "@/theme";
 
 // Same fields and endpoint as the portal's "Create Delegation" (POST
@@ -117,8 +118,8 @@ export default function NewDelegationScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={formStyles.flex} behavior="padding">
-      <ScrollView style={formStyles.screen} contentContainerStyle={[formStyles.content, { paddingHorizontal: gutter() }]} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoider style={formStyles.flex}>
+      <KeyboardScrollView style={formStyles.screen} contentContainerStyle={[formStyles.content, { paddingHorizontal: gutter() }]} keyboardShouldPersistTaps="handled">
         <Section title="Delegate">
           <Field label="Who will approve for you" hint="Only colleagues you're allowed to delegate to are listed.">
             <Select
@@ -174,8 +175,8 @@ export default function NewDelegationScreen() {
 
         {error && <Text style={formStyles.error}>{error}</Text>}
         <PrimaryButton label={saving ? "Creating…" : "Create delegation"} onPress={() => void save()} disabled={saving} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardScrollView>
+    </KeyboardAvoider>
   );
 }
 

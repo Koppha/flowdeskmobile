@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Plus, Trash2 } from "lucide-react-native";
 import {
@@ -35,6 +35,7 @@ import {
 } from "@/lib/request-forms";
 import { DateInput, Field, Input, PrimaryButton, Section, Segmented, Select, SummaryRow, type SelectOption, useFormStyles } from "@/components/form";
 import { useLayout } from "@/components/layout";
+import { KeyboardAvoider, KeyboardScrollView } from "@/components/keyboard";
 import { useTheme } from "@/theme";
 
 const SELF = "__SELF__";
@@ -503,8 +504,8 @@ export default function NewAdvanceScreen() {
   }));
 
   return (
-    <KeyboardAvoidingView style={formStyles.flex} behavior="padding">
-      <ScrollView style={formStyles.screen} contentContainerStyle={[formStyles.content, { paddingHorizontal: gutter() }]} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoider style={formStyles.flex}>
+      <KeyboardScrollView style={formStyles.screen} contentContainerStyle={[formStyles.content, { paddingHorizontal: gutter() }]} keyboardShouldPersistTaps="handled">
         {requestForOptions.length > 1 && (
           <Section title="Request for">
             <Field label="Who is this advance for?" hint={draftId ? "Locked - a draft already exists for this person." : undefined}>
@@ -824,7 +825,7 @@ export default function NewAdvanceScreen() {
           </Text>
         ))}
         <PrimaryButton label={submitting ? "Submitting…" : "Submit advance"} onPress={submit} disabled={submitting || noWorkflow} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardScrollView>
+    </KeyboardAvoider>
   );
 }

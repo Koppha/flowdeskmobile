@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowUp, Check, CircleHelp, Compass, FileText, History, Inbox, MapPin, Sparkles, SquarePen, Trash2, type LucideIcon } from "lucide-react-native";
@@ -7,6 +7,7 @@ import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
 import { streamAssistantChat } from "@/lib/assistant";
 import { useLayout } from "@/components/layout";
+import { KeyboardAvoider, useKeyboardVisible } from "@/components/keyboard";
 import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
 
 // The FlowDesk AI Assistant, the same assistant as the web portal's side
@@ -35,6 +36,7 @@ export default function AssistantScreen() {
   const { user } = useAuth();
   const { gutter } = useLayout();
   const insets = useSafeAreaInsets();
+  const keyboardUp = useKeyboardVisible();
   const [status, setStatus] = useState<Status | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -147,7 +149,7 @@ export default function AssistantScreen() {
   const padX = { paddingHorizontal: gutter(layout.maxContentWidth, spacing.lg) };
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior="padding">
+    <KeyboardAvoider style={styles.screen}>
       <View style={[styles.toolbar, padX]}>
         <View style={styles.statusRow}>
           <View style={[styles.dot, { backgroundColor: !status ? colors.muted : canAsk ? colors.good : colors.bad }]} />
@@ -191,6 +193,8 @@ export default function AssistantScreen() {
         contentContainerStyle={[styles.bodyContent, padX]}
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        // The keyboard shrinks the conversation - keep the latest message in sight.
+        onLayout={() => scrollRef.current?.scrollToEnd({ animated: false })}
       >
         {messages.length === 0 ? (
           <View style={styles.welcome}>
@@ -270,7 +274,7 @@ export default function AssistantScreen() {
         )}
       </ScrollView>
 
-      <View style={[styles.composer, padX, { paddingBottom: spacing.md + insets.bottom }]}>
+      <View style={[styles.composer, padX, { paddingBottom: spacing.md + (keyboardUp ? 0 : insets.bottom) }]}>
         <View style={styles.inputRow}>
           <TextInput
             value={input}
@@ -297,7 +301,7 @@ export default function AssistantScreen() {
           </Text>
         )}
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

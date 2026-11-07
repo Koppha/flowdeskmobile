@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserRound } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
 import { api, type OrgStructure } from "@/lib/api";
 import { Field, Input, PrimaryButton, Section, Select, useFormStyles } from "@/components/form";
 import { useLayout } from "@/components/layout";
+import { KeyboardAvoider, KeyboardScrollView } from "@/components/keyboard";
 import { makeStyles, radii, spacing, useTheme } from "@/theme";
 
 // First sign-in: the account has no profile yet, so - like the web portal -
@@ -137,8 +138,8 @@ export default function CompleteProfileScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={formStyles.flex} behavior="padding">
-      <ScrollView
+    <KeyboardAvoider style={formStyles.flex}>
+      <KeyboardScrollView
         style={formStyles.screen}
         contentContainerStyle={[formStyles.content, { paddingTop: insets.top + spacing.xl, paddingHorizontal: gutter() }]}
         keyboardShouldPersistTaps="handled"
@@ -246,8 +247,8 @@ export default function CompleteProfileScreen() {
         <TouchableOpacity onPress={() => void logout()} style={styles.signOut} disabled={saving}>
           <Text style={formStyles.muted}>Not you? Sign out</Text>
         </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardScrollView>
+    </KeyboardAvoider>
   );
 }
 

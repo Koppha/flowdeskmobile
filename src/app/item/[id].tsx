@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { api } from "@/lib/api";
 import { fmtMoney, formatWhen } from "@/lib/request-forms";
@@ -8,6 +8,7 @@ import StatusPill from "@/components/StatusPill";
 import ApprovalTimeline from "@/components/ApprovalTimeline";
 import { AdvanceDetails, ClaimDetails } from "@/components/RequestDetails";
 import { Panes, useLayout } from "@/components/layout";
+import { KeyboardAvoider, KeyboardScrollView } from "@/components/keyboard";
 import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
 
 type DocType = "ADVANCE" | "CLAIM" | "CUSTOM_REQUEST";
@@ -94,7 +95,8 @@ export default function ItemDetailScreen() {
   const hasRoute = Array.isArray(detail.approval_chain) && detail.approval_chain.length > 0;
 
   return (
-    <ScrollView
+    <KeyboardAvoider>
+    <KeyboardScrollView
       style={styles.screen}
       contentContainerStyle={[styles.content, { paddingHorizontal: gutter(layout.maxWideWidth) }]}
       keyboardShouldPersistTaps="handled"
@@ -151,7 +153,8 @@ export default function ItemDetailScreen() {
           </>
         }
       />
-    </ScrollView>
+    </KeyboardScrollView>
+    </KeyboardAvoider>
   );
 }
 

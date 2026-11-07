@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -9,6 +9,7 @@ import { useMobileModules } from "@/lib/mobile-modules";
 import { RESERVED_TYPES, addDays, fmtMoney, formatDisplayDate, toNumber, todayIso } from "@/lib/request-forms";
 import { DateInput, Field, Input, PrimaryButton, Section, Select, SummaryRow, type SelectOption, useFormStyles } from "@/components/form";
 import { useLayout } from "@/components/layout";
+import { KeyboardAvoider, KeyboardScrollView } from "@/components/keyboard";
 import { makeStyles, radii, spacing, useTheme } from "@/theme";
 
 type Advance = { id: string; type: string; status: string; approved_total: number | string | null; requested_total: number | string; created_at: string; travel_type_name?: string; travel_currency?: string | null };
@@ -344,8 +345,8 @@ export default function NewClearanceScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={formStyles.flex} behavior="padding">
-      <ScrollView style={formStyles.screen} contentContainerStyle={[formStyles.content, { paddingHorizontal: gutter() }]} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoider style={formStyles.flex}>
+      <KeyboardScrollView style={formStyles.screen} contentContainerStyle={[formStyles.content, { paddingHorizontal: gutter() }]} keyboardShouldPersistTaps="handled">
         <Section title="Details">
           <Field label="Month">
             <Select value={month} options={monthOptions()} onChange={setMonth} placeholder="Choose month" />
@@ -507,8 +508,8 @@ export default function NewClearanceScreen() {
         ))}
         <PrimaryButton label={busy === "submit" ? "Submitting…" : "Submit clearance"} onPress={() => persist(true)} disabled={busy !== null || uploading > 0} />
         <PrimaryButton label={busy === "save" ? "Saving…" : "Save draft"} variant="secondary" onPress={() => persist(false)} disabled={busy !== null || uploading > 0} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardScrollView>
+    </KeyboardAvoider>
   );
 }
 

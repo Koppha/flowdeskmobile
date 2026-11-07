@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Image, KeyboardAvoidingView, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoider, KeyboardScrollView } from "@/components/keyboard";
 import { Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
 import { useUnlockMethod } from "@/lib/biometrics";
@@ -34,8 +35,8 @@ export default function LoginScreen() {
 
   return (
     // Android is edge-to-edge, so adjustResize no longer shrinks the window — pad on both platforms.
-    <KeyboardAvoidingView style={styles.screen} behavior="padding">
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <KeyboardAvoider style={styles.screen}>
+      <KeyboardScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={styles.center}>
         <View style={isDark ? styles.logoBackdrop : undefined}>
         <Image source={require("../../assets/econet-logo.png")} style={[styles.logo, isDark && styles.logoInBackdrop]} resizeMode="contain" />
@@ -94,8 +95,8 @@ export default function LoginScreen() {
       </View>
 
       <Text style={styles.disclaimer}>This is a secure system. Unauthorised access is prohibited.</Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardScrollView>
+    </KeyboardAvoider>
   );
 }
 
