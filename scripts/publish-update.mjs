@@ -17,6 +17,13 @@
 // the fingerprint won't match any installed APK and the update reaches no one
 // - ship a new APK instead.
 //
+// The fingerprint worked out here can differ from the one the APK build
+// embedded even when nothing native changed (1.0.9's APK says 6d847bc6…, this
+// script computed e07b9d08… - so no 1.0.9 phone got an update). Check the APK's
+// own value - `unzip -p app-release.apk assets/fingerprint` - and, when only
+// JS has changed since it was built, pass it with --runtime-version <value>.
+// --max-workers <n> bundles with fewer workers when the machine is low on memory.
+//
 // Env: FLOWDESK_API_URL (default app.json extra.apiUrl), FLOWDESK_ADMIN_EMAIL,
 // FLOWDESK_ADMIN_PASSWORD - same as upload-build.mjs.
 
@@ -82,12 +89,15 @@ if (!presetToken && (!email || !password) && !process.argv.includes("--dry-run")
 const message = arg("message") || "";
 
 async function main() {
-  const runtimeVersion = JSON.parse(npx(["expo-updates", "runtimeversion:resolve", "--platform", PLATFORM]).trim().split("\n").pop()).runtimeVersion;
-  console.log(`Runtime version (native fingerprint for app version ${appJson.expo.version}): ${runtimeVersion}`);
+  const runtimeVersion =
+    arg("runtime-version") ||
+    JSON.parse(npx(["expo-updates", "runtimeversion:resolve", "--platform", PLATFORM]).trim().split("\n").pop()).runtimeVersion;
+  console.log(`Runtime version (native fingerprint for app version ${appJson.expo.version}): ${runtimeVersion}${arg("runtime-version") ? " (given)" : ""}`);
 
   const outDir = path.join(os.tmpdir(), `flowdesk-update-${Date.now()}`);
   console.log("Bundling…");
-  npx(["expo", "export", "--platform", PLATFORM, "--output-dir", outDir]);
+  const maxWorkers = arg("max-workers");
+  npx(["expo", "export", "--platform", PLATFORM, "--output-dir", outDir, ...(maxWorkers ? ["--max-workers", maxWorkers] : [])]);
   // Public app config: becomes Constants.expoConfig inside the update (api.ts reads extra.apiUrl from it).
   const expoClient = JSON.parse(npx(["expo", "config", "--type", "public", "--json"]));
 
