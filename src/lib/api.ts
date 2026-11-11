@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import { clearToken, getToken } from "./secure-storage";
+import type { AssistantChartData } from "./assistant";
 
 // extra.apiUrl comes from app.config.ts: UAT unless the build ran with
 // APP_ENV=prod. Both go through the external proxy, so the app works off the
@@ -279,7 +280,7 @@ export const api = {
   assistantConversations: () =>
     req("/ai/assistant/conversations") as Promise<{ items: { id: string; title: string | null; updated_at: string }[] }>,
   assistantConversation: (id: string) =>
-    req(`/ai/assistant/conversations/${id}`) as Promise<{ messages?: { role: "user" | "assistant"; text: string }[] }>,
+    req(`/ai/assistant/conversations/${id}`) as Promise<{ messages?: { role: "user" | "assistant"; text: string; charts?: AssistantChartData[] }[] }>,
   deleteAssistantConversation: (id: string) => req(`/ai/assistant/conversations/${id}`, { method: "DELETE" }),
 
   // --- First sign-in: "Complete your profile" (same endpoint and payload as

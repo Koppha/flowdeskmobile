@@ -6,11 +6,21 @@ import { API, clientHeaders, handleUnauthorized } from "./api";
 // portal's assistant panel reads. expo/fetch is used because React Native's
 // own fetch can't read a response while it is still arriving.
 
+// A chart the assistant drew from a FlowDesk lookup (its show_chart tool).
+export type AssistantChartData = {
+  title: string;
+  type: "bar" | "line" | "pie";
+  labels: string[];
+  series: { name: string; values: number[] }[];
+  unit?: string;
+};
+
 export type AssistantEvent =
   | { type: "conversation"; id: string }
   | { type: "text"; delta: string }
   | { type: "tool"; name: string; label: string }
   | { type: "draft"; kind: "advance" | "clearance"; id: string; label: string }
+  | { type: "chart"; chart: AssistantChartData }
   | { type: "error"; message: string }
   | { type: "done" };
 

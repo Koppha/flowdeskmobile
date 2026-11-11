@@ -5,7 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowUp, Check, CircleHelp, Compass, FileText, History, Inbox, MapPin, Sparkles, SquarePen, Trash2, type LucideIcon } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
 import { api, type AssistantStatus } from "@/lib/api";
-import { streamAssistantChat } from "@/lib/assistant";
+import { streamAssistantChat, type AssistantChartData } from "@/lib/assistant";
+import AssistantChart from "@/components/AssistantChart";
 import { Select } from "@/components/form";
 import { useLayout } from "@/components/layout";
 import { KeyboardAvoider, useKeyboardVisible } from "@/components/keyboard";
@@ -17,7 +18,7 @@ import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
 // "Open" button appears when it does. Which AI service answers, the daily
 // limit and who may use it are all set on the portal.
 
-type Msg = { role: "user" | "assistant"; text: string; notes?: string[]; drafts?: { kind: string; id: string; label: string }[]; error?: boolean };
+type Msg = { role: "user" | "assistant"; text: string; notes?: string[]; drafts?: { kind: string; id: string; label: string }[]; charts?: AssistantChartData[]; error?: boolean };
 type Conv = { id: string; title: string | null; updated_at: string };
 type Status = AssistantStatus;
 // The Select value for "the admin's order" (no pick of my own).
@@ -96,7 +97,7 @@ export default function AssistantScreen() {
     try {
       const c = await api.assistantConversation(id);
       setConversationId(id);
-      setMessages((c.messages || []).map((m) => ({ role: m.role, text: m.text })));
+      setMessages((c.messages || []).map((m) => ({ role: m.role, text: m.text, ...(m.charts?.length ? { charts: m.charts } : {}) })));
       setShowHistory(false);
     } catch (e: any) {
       Alert.alert("Couldn't open it", e?.message || "Try again.");
@@ -142,6 +143,7 @@ export default function AssistantScreen() {
           if (ev.type === "conversation") setConversationId(ev.id);
           else if (ev.type === "text") patchLast((m) => ({ ...m, text: m.text + ev.delta }));
           else if (ev.type === "tool") patchLast((m) => ({ ...m, notes: [...(m.notes || []), ev.label] }));
+          else if (ev.type === "chart") patchLast((m) => ({ ...m, charts: [...(m.charts || []), ev.chart] }));
           else if (ev.type === "draft") patchLast((m) => ({ ...m, drafts: [...(m.drafts || []), { kind: ev.kind, id: ev.id, label: ev.label }] }));
           else if (ev.type === "error") patchLast((m) => ({ ...m, text: (m.text ? m.text + "\n\n" : "") + ev.message, error: true }));
         },
@@ -289,6 +291,7 @@ export default function AssistantScreen() {
                     <Text style={styles.noteText}>{n}</Text>
                   </View>
                 ))}
+                {(m.charts || []).map((c, j) => <AssistantChart key={j} chart={c} />)}
                 {m.text ? (
                   <Formatted text={m.text} />
                 ) : busy && last && !notes.length ? (
