@@ -143,7 +143,22 @@ export type MaintenanceInboxItem = {
   current_step_actionable_by_me?: boolean;
 };
 
-export type InboxItem = (AdvanceInboxItem | ClaimInboxItem | CustomRequestInboxItem | SignableDocumentInboxItem | MaintenanceInboxItem) & {
+// A Help & Support chat that needs me: a staff member waiting on the support
+// team (as_agent), or support's reply I haven't read yet.
+export type SupportChatInboxItem = {
+  doc_type: "SUPPORT_CHAT";
+  id: string;
+  status: string;
+  status_label: string;
+  task_label: string;
+  requester_name: string;
+  preview: string | null;
+  as_agent: boolean;
+  current_step_position_name?: string | null;
+  current_step_actionable_by_me?: boolean;
+};
+
+export type InboxItem = (AdvanceInboxItem | ClaimInboxItem | CustomRequestInboxItem | SignableDocumentInboxItem | MaintenanceInboxItem | SupportChatInboxItem) & {
   submitted_at?: string | null;
   created_at?: string | null;
 };

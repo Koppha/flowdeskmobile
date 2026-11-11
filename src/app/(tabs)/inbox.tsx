@@ -46,6 +46,15 @@ function itemMeta(item: InboxItem, colors: Colors) {
       kindColor: item.priority === "EMERGENCY" ? colors.bad : colors.warn
     };
   }
+  if (item.doc_type === "SUPPORT_CHAT") {
+    return {
+      kind: "Help & Support",
+      title: item.as_agent ? item.requester_name : "FlowDesk support replied",
+      subtitle: item.preview || item.task_label,
+      amount: null as string | null,
+      kindColor: colors.info
+    };
+  }
   return {
     kind: "Custom Process",
     title: item.request_type_name,
@@ -142,9 +151,9 @@ export default function InboxScreen() {
               ref={(r) => {
                 rowRefs.current[item.id] = r;
               }}
-              // Signing needs a placed signature and maintenance has its own
-              // steps, so neither gets swipe-to-approve.
-              enabled={item.doc_type !== "SIGNABLE_DOCUMENT" && item.doc_type !== "MAINTENANCE_REQUEST"}
+              // Signing needs a placed signature, maintenance has its own steps
+              // and a support chat needs an answer, so none gets swipe-to-approve.
+              enabled={!["SIGNABLE_DOCUMENT", "MAINTENANCE_REQUEST", "SUPPORT_CHAT"].includes(item.doc_type)}
               renderRightActions={() => (
                 <View style={styles.actions}>
                   <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.bad }]} onPress={() => goReject(item)}>
@@ -163,7 +172,9 @@ export default function InboxScreen() {
                     ? router.push({ pathname: "/sign", params: { doc: item.id } })
                     : item.doc_type === "MAINTENANCE_REQUEST"
                       ? router.push({ pathname: "/maintenance", params: { req: item.id } })
-                      : router.push({ pathname: "/item/[id]", params: { id: item.id, docType: item.doc_type, name: meta.title } })
+                      : item.doc_type === "SUPPORT_CHAT"
+                        ? router.push({ pathname: "/web", params: { go: "support" } })
+                        : router.push({ pathname: "/item/[id]", params: { id: item.id, docType: item.doc_type, name: meta.title } })
                 }
               >
                 <View style={styles.rowContent}>
