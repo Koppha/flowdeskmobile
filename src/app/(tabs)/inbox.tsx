@@ -108,7 +108,7 @@ export default function InboxScreen() {
         text: "Approve",
         onPress: async () => {
           try {
-            if (item.doc_type === "ADVANCE") await api.approveAdvance(item.id, item.approved_total || item.requested_total);
+            if (item.doc_type === "ADVANCE") await api.approveAdvance(item.id, Number(item.approved_total) || Number(item.requested_total));
             else if (item.doc_type === "CLAIM") await api.approveClaim(item.id);
             setItems((prev) => prev.filter((i) => i.id !== item.id));
           } catch (e: any) {

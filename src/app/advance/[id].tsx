@@ -114,7 +114,8 @@ export default function AdvanceTrackingScreen() {
 
   const status = String(advance.status || "");
   const currency = advance.travel_currency || "LSL";
-  const amount = Number(advance.approved_total || advance.requested_total || 0);
+  // approved_total arrives as "0.00" (truthy) until someone approves - fall back on the number, not the string.
+  const amount = Number(advance.approved_total) || Number(advance.requested_total) || 0;
   const waitingOn = chainSteps(advance.approval_chain, advance.workflow_step_order, status).find((s) => s.state === "current")?.step;
   const rejection = [...history].reverse().find((h) => h.action === "ADVANCE_REJECT" || h.action === "ADVANCE_ROLLBACK");
   const events = history.filter((h) => !HIDDEN_ACTIONS.has(h.action)).slice().reverse();

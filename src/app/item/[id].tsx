@@ -45,7 +45,8 @@ export default function ItemDetailScreen() {
     setSubmitting(true);
     try {
       if (docType === "CLAIM") await api.approveClaim(id, comment || undefined);
-      else await api.approveAdvance(id, detail?.approved_total || detail?.requested_total, comment || undefined);
+      // approved_total is "0.00" (truthy) until someone sets it - the server needs a positive amount.
+      else await api.approveAdvance(id, Number(detail?.approved_total) || Number(detail?.requested_total), comment || undefined);
       router.replace({ pathname: "/confirmed", params: { outcome: "approved" } });
     } catch (e: any) {
       setError(e?.message || "Couldn't approve this item.");
@@ -88,7 +89,7 @@ export default function ItemDetailScreen() {
   const isClaim = docType === "CLAIM";
   // The claim payload has no claimant name - the inbox passes it along.
   const person = isClaim ? name || detail.claimant_name : detail.requester_name || name;
-  const amount = Number(isClaim ? detail.claim_total : detail.approved_total || detail.requested_total) || 0;
+  const amount = (isClaim ? Number(detail.claim_total) : Number(detail.approved_total) || Number(detail.requested_total)) || 0;
   const currency = isClaim ? detail.currency : detail.travel_currency;
   const kind = isClaim ? "Clearance claim" : detail.travel_type_name || String(detail.type || "Advance").replace(/_/g, " ");
   const status = String(detail.status || "");
