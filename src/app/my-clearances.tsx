@@ -82,18 +82,31 @@ export default function MyClearancesScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingHorizontal: gutter(layout.maxWideWidth) }]}>
       {header}
       <Grid columns={columns}>
-      {items.map((c) => (
-        <View key={c.id} style={styles.card}>
-          <View style={styles.row}>
-            <Text style={styles.title}>{c.month ? `${c.month} Travel Clearance` : "Travel Clearance"}</Text>
-            <Text style={styles.amount}>{fmtMoney(Number(c.claim_total), c.currency)}</Text>
-          </View>
-          <View style={styles.pillRow}>
-            <StatusPill label={c.status.replace(/_/g, " ")} tone={toneFor(c.status)} />
-          </View>
-          <Text style={styles.meta}>{c.closed_at ? `Closed ${new Date(c.closed_at).toLocaleDateString()}` : "In progress"}</Text>
-        </View>
-      ))}
+      {items.map((c) => {
+        // A draft (yours, or one the AI Assistant saved) opens in the form to finish and submit.
+        const draft = c.status === "DRAFT" && modules.createClearance;
+        return (
+          <TouchableOpacity
+            key={c.id}
+            style={styles.card}
+            disabled={!draft}
+            activeOpacity={0.8}
+            onPress={() => router.push({ pathname: "/new-clearance", params: { claim: c.id } })}
+            accessibilityHint={draft ? "Opens the draft to finish and submit" : undefined}
+          >
+            <View style={styles.row}>
+              <Text style={styles.title}>{c.month ? `${c.month} Travel Clearance` : "Travel Clearance"}</Text>
+              <Text style={styles.amount}>{fmtMoney(Number(c.claim_total), c.currency)}</Text>
+            </View>
+            <View style={styles.pillRow}>
+              <StatusPill label={c.status.replace(/_/g, " ")} tone={toneFor(c.status)} />
+            </View>
+            <Text style={[styles.meta, draft && styles.draftLink]}>
+              {draft ? "Draft - tap to finish and submit" : c.closed_at ? `Closed ${new Date(c.closed_at).toLocaleDateString()}` : "In progress"}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
       </Grid>
       {items.length === 0 && <Text style={styles.empty}>{error ?? "No clearances yet."}</Text>}
     </ScrollView>
@@ -110,6 +123,7 @@ const useStyles = makeStyles((colors) => ({
   amount: { fontSize: 15, fontWeight: "700", color: colors.ink },
   pillRow: { marginTop: spacing.sm },
   meta: { marginTop: spacing.sm, fontSize: 12, color: colors.muted },
+  draftLink: { color: colors.accent, fontWeight: "600" },
   empty: { textAlign: "center", color: colors.muted, marginTop: spacing.xxl },
   newButton: { flexDirection: "row", alignItems: "center", gap: 4 },
   newLabel: { color: colors.accent, fontWeight: "700", fontSize: 15 }

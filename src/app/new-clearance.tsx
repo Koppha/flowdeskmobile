@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, FileText, Image as ImageIcon, Plus, Trash2 } from "lucide-react-native";
@@ -44,6 +44,8 @@ export default function NewClearanceScreen() {
   const formStyles = useFormStyles();
   const receiptStyles = useReceiptStyles();
   const router = useRouter();
+  // ?claim=<id> opens that draft straight away (My Clearances, the AI Assistant's "Open").
+  const { claim: openClaim } = useLocalSearchParams<{ claim?: string }>();
   const { gutter } = useLayout();
   const { modules, loaded: modulesLoaded } = useMobileModules();
 
@@ -107,6 +109,14 @@ export default function NewClearanceScreen() {
       });
     return [...drafts, ...fresh];
   }, [advances, claims]);
+
+  useEffect(() => {
+    if (loading || loadError || claimId || !openClaim) return;
+    if (!claims.some((c) => c.id === openClaim && c.status === "DRAFT")) return;
+    loadClaim(openClaim).catch((e: any) => setErrors([e?.message || "Couldn't open the draft."]));
+    // loadClaim reads the loaded advances; run once they're in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, loadError, openClaim, claims]);
 
   async function loadClaim(id: string) {
     const c = await api.claimDetail(id);

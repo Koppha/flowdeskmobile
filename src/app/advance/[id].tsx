@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Clock3, X } from "lucide-react-native";
 import { api } from "@/lib/api";
 import { fmtMoney, formatWhen } from "@/lib/request-forms";
 import { statusLabel, toneFor } from "@/lib/status";
 import StatusPill from "@/components/StatusPill";
+import { PrimaryButton } from "@/components/form";
 import ApprovalTimeline, { chainSteps, stepTitle } from "@/components/ApprovalTimeline";
 import { AdvanceDetails } from "@/components/RequestDetails";
 import { Panes, useLayout } from "@/components/layout";
@@ -14,6 +15,8 @@ import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
 // Requester-side tracking for one advance: where it is in its approval route,
 // who approved each step and when, payment, the itinerary, and the full
 // activity log. Data: GET /advances/:id and GET /advances/:id/history.
+// A draft (e.g. one the AI Assistant saved, or one sent back for changes)
+// can be submitted from here; the server runs the same checks as the form.
 
 type HistoryRow = {
   id: string;
@@ -48,6 +51,8 @@ export default function AdvanceTrackingScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const { gutter, twoPane } = useLayout();
 
   const load = useCallback(async () => {
@@ -69,6 +74,28 @@ export default function AdvanceTrackingScreen() {
       void load();
     }, [load])
   );
+
+  function confirmSubmit() {
+    Alert.alert("Submit for approval?", "Check the details below first - once submitted, it goes to your approvers and can't be edited.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Submit",
+        onPress: async () => {
+          setSubmitting(true);
+          setSubmitError(null);
+          try {
+            const result = await api.submitAdvance(id);
+            Alert.alert("Advance submitted", result?.warning || "Your advance request has been submitted for approval.");
+            await load();
+          } catch (e: any) {
+            setSubmitError(e?.message || "Couldn't submit the advance.");
+          } finally {
+            setSubmitting(false);
+          }
+        }
+      }
+    ]);
+  }
 
   if (loading) {
     return (
@@ -135,6 +162,13 @@ export default function AdvanceTrackingScreen() {
             </Text>
           </View>
         )}
+        {status === "DRAFT" && (
+          <View style={styles.draftActions}>
+            <Text style={styles.muted}>This is a draft - it hasn&apos;t gone to your approvers yet.</Text>
+            {submitError && <Text style={styles.error}>{submitError}</Text>}
+            <PrimaryButton label={submitting ? "Submitting…" : "Submit for approval"} onPress={confirmSubmit} disabled={submitting} />
+          </View>
+        )}
       </View>
       {twoPane && <AdvanceDetails a={advance} />}
           </>
@@ -197,6 +231,8 @@ const useStyles = makeStyles((colors) => ({
   banner: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: spacing.md, padding: spacing.md, borderRadius: radii.md, backgroundColor: colors.warnSoft },
   bannerBad: { backgroundColor: colors.badSoft },
   bannerText: { flex: 1, fontSize: 13, color: colors.ink, lineHeight: 18 },
+  draftActions: { marginTop: spacing.md, gap: spacing.sm },
+  error: { fontSize: 13, color: colors.bad, lineHeight: 18 },
   sectionLabel: { fontSize: 12.5, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: spacing.sm },
   spaced: { marginTop: spacing.lg },
   event: { paddingVertical: 10 },

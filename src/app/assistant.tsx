@@ -103,8 +103,9 @@ export default function AssistantScreen() {
   }
 
   function openDraft(kind: string, id: string) {
+    // Both open where the draft can be checked and submitted.
     if (kind === "advance") router.push(`/advance/${id}`);
-    else router.push("/my-clearances");
+    else router.push({ pathname: "/new-clearance", params: { claim: id } });
   }
 
   async function ask(text: string) {
