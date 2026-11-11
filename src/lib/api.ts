@@ -163,6 +163,18 @@ export type InboxItem = (AdvanceInboxItem | ClaimInboxItem | CustomRequestInboxI
   created_at?: string | null;
 };
 
+export type AssistantModelPick = { service: string; model: string };
+export type AssistantStatus = {
+  configured: boolean;
+  enabled?: boolean;
+  daily_limit: number;
+  used_today: number;
+  // Picking your own model (Settings > AI Assistant allows it): the list and my pick.
+  user_choice?: boolean;
+  models?: (AssistantModelPick & { label: string })[];
+  my_model?: AssistantModelPick | null;
+};
+
 export const api = {
   login: (email: string, password: string) =>
     req("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }) as Promise<{ token: string }>,
@@ -260,8 +272,10 @@ export const api = {
   // limit and who may use it are all set on the portal (Settings > AI
   // Assistant, Roles & Permissions) - nothing about the AI lives in the app.
   // The chat itself streams: see src/lib/assistant.ts.
-  assistantStatus: () =>
-    req("/ai/assistant/status") as Promise<{ configured: boolean; enabled?: boolean; daily_limit: number; used_today: number }>,
+  assistantStatus: () => req("/ai/assistant/status") as Promise<AssistantStatus>,
+  // My own model from the admin's list, or null for the default order.
+  setAssistantModel: (pick: AssistantModelPick | null) =>
+    req("/ai/assistant/my-model", { method: "PUT", body: JSON.stringify({ pick }) }) as Promise<{ my_model: AssistantModelPick | null }>,
   assistantConversations: () =>
     req("/ai/assistant/conversations") as Promise<{ items: { id: string; title: string | null; updated_at: string }[] }>,
   assistantConversation: (id: string) =>

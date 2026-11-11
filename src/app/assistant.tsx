@@ -4,8 +4,9 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowUp, Check, CircleHelp, Compass, FileText, History, Inbox, MapPin, Sparkles, SquarePen, Trash2, type LucideIcon } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
-import { api } from "@/lib/api";
+import { api, type AssistantStatus } from "@/lib/api";
 import { streamAssistantChat } from "@/lib/assistant";
+import { Select } from "@/components/form";
 import { useLayout } from "@/components/layout";
 import { KeyboardAvoider, useKeyboardVisible } from "@/components/keyboard";
 import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
@@ -18,7 +19,9 @@ import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
 
 type Msg = { role: "user" | "assistant"; text: string; notes?: string[]; drafts?: { kind: string; id: string; label: string }[]; error?: boolean };
 type Conv = { id: string; title: string | null; updated_at: string };
-type Status = { configured: boolean; enabled?: boolean; daily_limit: number; used_today: number };
+type Status = AssistantStatus;
+// The Select value for "the admin's order" (no pick of my own).
+const DEFAULT_MODEL = "default";
 type Suggestion = { icon: LucideIcon; title: string; hint: string; ask: string };
 
 const SUGGESTIONS: Suggestion[] = [
@@ -55,6 +58,19 @@ export default function AssistantScreen() {
     // Leaving the screen stops an answer that is still coming in.
     return () => abortRef.current?.abort();
   }, []);
+
+  // My own model from the admin's list (Settings > AI Assistant allows it).
+  const modelValue = status?.my_model ? `${status.my_model.service}|${status.my_model.model}` : DEFAULT_MODEL;
+  async function pickModel(value: string) {
+    const [service, ...rest] = value.split("|");
+    const pick = value === DEFAULT_MODEL ? null : { service, model: rest.join("|") };
+    try {
+      await api.setAssistantModel(pick);
+      setStatus((s) => (s ? { ...s, my_model: pick } : s));
+    } catch (e: any) {
+      Alert.alert("Couldn't change the model", e?.message || "Try again.");
+    }
+  }
 
   function newChat() {
     abortRef.current?.abort();
@@ -163,6 +179,23 @@ export default function AssistantScreen() {
           <SquarePen size={18} color={colors.ink} />
         </TouchableOpacity>
       </View>
+
+      {canAsk && status?.user_choice && (status.models?.length || 0) > 1 && (
+        <View style={[styles.modelRow, padX]}>
+          <Text style={styles.modelLabel}>Model</Text>
+          <View style={{ flex: 1 }}>
+            <Select
+              value={modelValue}
+              onChange={(v) => void pickModel(v)}
+              title="AI model"
+              options={[
+                { value: DEFAULT_MODEL, label: "Default", sub: "The order set by your administrator" },
+                ...status.models!.map((m) => ({ value: `${m.service}|${m.model}`, label: m.model, sub: m.label.replace(`${m.model} `, "").replace(/^\(|\)$/g, "") }))
+              ]}
+            />
+          </View>
+        </View>
+      )}
 
       {showHistory && (
         <View style={[styles.history, padX]}>
@@ -395,6 +428,8 @@ const useStyles = makeStyles((colors) => ({
   statusText: { fontSize: 12.5, color: colors.muted, fontWeight: "600" },
   toolButton: { padding: 8, borderRadius: radii.sm },
   toolButtonOn: { backgroundColor: colors.accentSoft },
+  modelRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  modelLabel: { fontSize: 12.5, color: colors.muted, fontWeight: "600" },
   history: { backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: spacing.xs },
   historyEmpty: { fontSize: 13, color: colors.muted, paddingVertical: spacing.md },
   historyRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
