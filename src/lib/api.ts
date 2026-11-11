@@ -165,6 +165,21 @@ export type InboxItem = (AdvanceInboxItem | ClaimInboxItem | CustomRequestInboxI
 };
 
 export type AssistantModelPick = { service: string; model: string };
+// GET /ai/assistant/reminders (backend ai/clearance-reminders.ts).
+export type ClearanceDue = {
+  advance_id: string;
+  reference: string;
+  type: string;
+  amount: number;
+  currency: string;
+  due_on: string;
+  due_on_text: string;
+  due_text: string;
+  days_left: number;
+  overdue: boolean;
+  draft_clearance_id: string | null;
+};
+
 export type AssistantStatus = {
   configured: boolean;
   enabled?: boolean;
@@ -274,6 +289,8 @@ export const api = {
   // Assistant, Roles & Permissions) - nothing about the AI lives in the app.
   // The chat itself streams: see src/lib/assistant.ts.
   assistantStatus: () => req("/ai/assistant/status") as Promise<AssistantStatus>,
+  // My paid travel advances still to clear - the assistant greets with them.
+  assistantReminders: () => req("/ai/assistant/reminders") as Promise<{ clearances: ClearanceDue[] }>,
   // My own model from the admin's list, or null for the default order.
   setAssistantModel: (pick: AssistantModelPick | null) =>
     req("/ai/assistant/my-model", { method: "PUT", body: JSON.stringify({ pick }) }) as Promise<{ my_model: AssistantModelPick | null }>,

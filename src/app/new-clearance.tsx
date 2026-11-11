@@ -45,7 +45,8 @@ export default function NewClearanceScreen() {
   const receiptStyles = useReceiptStyles();
   const router = useRouter();
   // ?claim=<id> opens that draft straight away (My Clearances, the AI Assistant's "Open").
-  const { claim: openClaim } = useLocalSearchParams<{ claim?: string }>();
+  // ?advance=<id> picks that paid advance (clearance reminders: the push and the assistant).
+  const { claim: openClaim, advance: openAdvance } = useLocalSearchParams<{ claim?: string; advance?: string }>();
   const { gutter } = useLayout();
   const { modules, loaded: modulesLoaded } = useMobileModules();
 
@@ -54,7 +55,7 @@ export default function NewClearanceScreen() {
   const [profileComplete, setProfileComplete] = useState(true);
   const [advances, setAdvances] = useState<Advance[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
-  const [pick, setPick] = useState("");
+  const [chosen, setPick] = useState("");
 
   // The draft claim being edited (created as soon as an advance is chosen).
   const [claimId, setClaimId] = useState<string | null>(null);
@@ -109,6 +110,8 @@ export default function NewClearanceScreen() {
       });
     return [...drafts, ...fresh];
   }, [advances, claims]);
+  // Until the person picks one themselves, ?advance=<id> is the pick (if it can be cleared).
+  const pick = chosen || (openAdvance && !openClaim && options.some((o) => o.value === `advance:${openAdvance}`) ? `advance:${openAdvance}` : "");
 
   useEffect(() => {
     if (loading || loadError || claimId || !openClaim) return;

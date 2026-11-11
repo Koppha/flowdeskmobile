@@ -2,9 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowUp, Check, CircleHelp, Compass, FileText, History, Inbox, MapPin, Sparkles, SquarePen, Trash2, type LucideIcon } from "lucide-react-native";
+import { AlarmClock, ArrowUp, Check, CircleHelp, Compass, FileText, History, Inbox, MapPin, Sparkles, SquarePen, Trash2, type LucideIcon } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
-import { api, type AssistantStatus } from "@/lib/api";
+import { api, type AssistantStatus, type ClearanceDue } from "@/lib/api";
 import { streamAssistantChat, type AssistantChartData } from "@/lib/assistant";
 import AssistantChart from "@/components/AssistantChart";
 import { Select } from "@/components/form";
@@ -51,8 +51,11 @@ export default function AssistantScreen() {
   const [history, setHistory] = useState<Conv[] | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  // Advances I still have to clear - shown on the welcome screen.
+  const [dueList, setDueList] = useState<ClearanceDue[]>([]);
 
   useEffect(() => {
+    api.assistantReminders().then((r) => setDueList(r?.clearances || [])).catch(() => setDueList([]));
     api.assistantStatus().then(setStatus).catch((e: Error & { status?: number }) => {
       setStatusError(e.status === 403 ? "The AI Assistant isn't available to your account. An administrator can give access from Roles & Permissions." : e.message || "Couldn't reach the assistant.");
     });
@@ -255,6 +258,43 @@ export default function AssistantScreen() {
               <>
                 <Text style={styles.welcomeTitle}>What would you like to know?</Text>
                 <Text style={styles.welcomeText}>Ask in plain language about your advances, clearances and approvals, or how anything in FlowDesk works.</Text>
+                {dueList.length > 0 && (
+                  <View style={styles.due} accessibilityLabel="Advances to clear">
+                    <View style={styles.dueHead}>
+                      <AlarmClock size={16} color={colors.warn} />
+                      <Text style={styles.dueHeadText}>{dueList.length === 1 ? "You have an advance to clear" : `You have ${dueList.length} advances to clear`}</Text>
+                    </View>
+                    {dueList.slice(0, 3).map((c) => (
+                      <View key={c.advance_id} style={styles.dueRow}>
+                        <Text style={styles.dueTitle}>
+                          {c.type} · {c.currency === "LSL" ? "M" : c.currency === "USD" ? "$" : `${c.currency} `}
+                          {c.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </Text>
+                        <Text style={[styles.dueWhen, c.overdue && { color: colors.bad }]}>
+                          {c.reference} · {c.overdue ? `Overdue - was due ${c.due_on_text}` : `Clear by ${c.due_on_text} (${c.due_text})`}
+                          {c.draft_clearance_id ? " · draft started" : ""}
+                        </Text>
+                        <View style={styles.dueActions}>
+                          <TouchableOpacity
+                            style={styles.draftButton}
+                            onPress={() =>
+                              router.push(c.draft_clearance_id ? { pathname: "/new-clearance", params: { claim: c.draft_clearance_id } } : { pathname: "/new-clearance", params: { advance: c.advance_id } })
+                            }
+                          >
+                            <Text style={styles.draftText}>{c.draft_clearance_id ? "Open draft" : "Start clearance"}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.draftButton}
+                            disabled={busy}
+                            onPress={() => void ask(`Help me clear my ${c.type} advance ${c.reference} (advance_id ${c.advance_id}). It's ${c.due_text}.`)}
+                          >
+                            <Text style={styles.draftText}>Clear it with me</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
                 <View style={styles.cards}>
                   {suggestions.map((s) => (
                     <TouchableOpacity key={s.title} style={styles.card} onPress={() => void ask(s.ask)} disabled={busy}>
@@ -444,6 +484,13 @@ const useStyles = makeStyles((colors) => ({
   hero: { width: 60, height: 60, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.accentSoft },
   welcomeTitle: { marginTop: spacing.lg, fontSize: 18, fontWeight: "700", color: colors.ink, textAlign: "center" },
   welcomeText: { marginTop: 6, fontSize: 13.5, color: colors.muted, textAlign: "center", lineHeight: 19 },
+  due: { alignSelf: "stretch", marginTop: spacing.lg, padding: spacing.md, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.warn, backgroundColor: colors.warnSoft },
+  dueHead: { flexDirection: "row", alignItems: "center", gap: 6 },
+  dueHeadText: { fontSize: 13.5, fontWeight: "700", color: colors.warn },
+  dueRow: { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  dueTitle: { fontSize: 14, fontWeight: "600", color: colors.ink },
+  dueWhen: { fontSize: 12.5, color: colors.warn, marginTop: 2 },
+  dueActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   cards: { alignSelf: "stretch", marginTop: spacing.xl, gap: spacing.sm },
   card: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg },
   cardIcon: { width: 32, height: 32, borderRadius: 9, alignItems: "center", justifyContent: "center", backgroundColor: colors.accentSoft },
