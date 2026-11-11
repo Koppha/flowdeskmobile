@@ -11,7 +11,6 @@
       "policy": "fingerprint"
     },
     "updates": {
-      "url": "https://dt-externalproxy-1.etl.co.ls/etl/flowdesk/uat/mobile-app/updates/manifest",
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0,
       "codeSigningCertificate": "./certs/certificate.pem",
@@ -70,10 +69,10 @@
           "microphonePermission": false
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "./plugins/with-release-signing"
     ],
     "extra": {
-      "apiUrl": "https://dt-externalproxy-1.etl.co.ls/etl/flowdesk/uat",
       "eas": {
         "projectId": "85d4e93c-2faa-409c-97f4-dd46d575f519"
       }

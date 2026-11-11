@@ -24,7 +24,9 @@
 // JS has changed since it was built, pass it with --runtime-version <value>.
 // --max-workers <n> bundles with fewer workers when the machine is low on memory.
 //
-// Env: FLOWDESK_API_URL (default app.json extra.apiUrl), FLOWDESK_ADMIN_EMAIL,
+// Env: APP_ENV=prod for production (anything else is UAT - see app.config.ts;
+// it decides the update URL baked into the manifest), FLOWDESK_API_URL
+// (default: that environment's API), FLOWDESK_ADMIN_EMAIL,
 // FLOWDESK_ADMIN_PASSWORD - same as upload-build.mjs.
 
 import { execFileSync } from "child_process";
@@ -70,14 +72,24 @@ const sha256Base64Url = (buf) => createHash("sha256").update(buf).digest("base64
 const md5Hex = (buf) => createHash("md5").update(buf).digest("hex");
 
 const appJson = JSON.parse(readFileSync(path.join(root, "app.json"), "utf8"));
-const manifestUrl = appJson.expo?.updates?.url;
+// Public app config for this APP_ENV (app.config.ts): becomes Constants.expoConfig
+// inside the update (api.ts reads extra.apiUrl from it) and gives the URLs below.
+const expoClient = JSON.parse(npx(["expo", "config", "--type", "public", "--json"]));
+const appEnv = expoClient.extra?.appEnv || "uat";
+const manifestUrl = expoClient.updates?.url;
 if (!manifestUrl?.endsWith("/manifest")) {
-  console.error('app.json expo.updates.url must end in "/manifest".');
+  console.error('The app config\'s updates.url must end in "/manifest" (app.config.ts).');
   process.exit(1);
 }
 // Assets are served next to the manifest endpoint, on the same public URL the app uses.
 const assetBaseUrl = manifestUrl.replace(/\/manifest$/, "/assets");
-const apiUrl = process.env.FLOWDESK_API_URL || appJson.expo?.extra?.apiUrl;
+const apiUrl = process.env.FLOWDESK_API_URL || expoClient.extra?.apiUrl;
+// CI points FLOWDESK_API_URL at the UAT server directly - never send a prod update there.
+if (appEnv === "prod" && /10\.3\.10\.59|\/uat\b/.test(apiUrl)) {
+  console.error(`APP_ENV=prod but FLOWDESK_API_URL is UAT (${apiUrl}). Unset it or point it at prod.`);
+  process.exit(1);
+}
+console.log(`Environment: ${appEnv} - uploading to ${apiUrl}, phones fetch from ${manifestUrl}`);
 const email = process.env.FLOWDESK_ADMIN_EMAIL;
 const password = process.env.FLOWDESK_ADMIN_PASSWORD;
 // Or an ADMIN session token instead of a password.
@@ -98,8 +110,6 @@ async function main() {
   console.log("Bundling…");
   const maxWorkers = arg("max-workers");
   npx(["expo", "export", "--platform", PLATFORM, "--output-dir", outDir, ...(maxWorkers ? ["--max-workers", maxWorkers] : [])]);
-  // Public app config: becomes Constants.expoConfig inside the update (api.ts reads extra.apiUrl from it).
-  const expoClient = JSON.parse(npx(["expo", "config", "--type", "public", "--json"]));
 
   try {
     const metadata = JSON.parse(readFileSync(path.join(outDir, "metadata.json"), "utf8"));

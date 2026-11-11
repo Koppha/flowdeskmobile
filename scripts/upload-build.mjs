@@ -9,7 +9,8 @@
 // Requires an ADMIN account's credentials (the upload endpoint is
 // ADMIN-only) via env vars - never hardcode credentials in this file or
 // pass them on the command line where they'd land in shell history:
-//   FLOWDESK_API_URL       defaults to app.json's extra.apiUrl (UAT)
+//   APP_ENV                prod for production; anything else is UAT (app.config.ts)
+//   FLOWDESK_API_URL       defaults to that environment's API
 //   FLOWDESK_ADMIN_EMAIL    required
 //   FLOWDESK_ADMIN_PASSWORD required
 //
@@ -18,6 +19,7 @@
 //   npm run distribute -- --file ./build/flowdesk.apk --version 1.5.0
 // --version defaults to app.json's expo.version if not given.
 
+import { execFileSync } from "child_process";
 import { readFileSync, existsSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -42,7 +44,23 @@ if (!existsSync(resolvedFile)) {
 }
 
 const appJson = JSON.parse(readFileSync(path.join(root, "app.json"), "utf8"));
-const apiUrl = process.env.FLOWDESK_API_URL || appJson.expo?.extra?.apiUrl || "https://dt-externalproxy-1.etl.co.ls/etl/flowdesk/uat";
+// The resolved app config for this APP_ENV (app.config.ts) knows the environment's API.
+const expoConfig = JSON.parse(
+  execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["expo", "config", "--type", "public", "--json"], {
+    cwd: root,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+    stdio: ["ignore", "pipe", "inherit"]
+  })
+);
+const appEnv = expoConfig.extra?.appEnv || "uat";
+const apiUrl = process.env.FLOWDESK_API_URL || expoConfig.extra?.apiUrl;
+// CI points FLOWDESK_API_URL at the UAT server directly - never put a prod APK there.
+if (appEnv === "prod" && /10\.3\.10\.59|\/uat\b/.test(apiUrl)) {
+  console.error(`APP_ENV=prod but FLOWDESK_API_URL is UAT (${apiUrl}). Unset it or point it at prod.`);
+  process.exit(1);
+}
+console.log(`Environment: ${appEnv} - ${expoConfig.name} (${expoConfig.android?.package}) to ${apiUrl}`);
 const version = arg("version") || appJson.expo?.version;
 if (!version) {
   console.error("No --version given and app.json has no expo.version to fall back to.");

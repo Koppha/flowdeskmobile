@@ -3,11 +3,9 @@ import Constants from "expo-constants";
 import * as Device from "expo-device";
 import { clearToken, getToken } from "./secure-storage";
 
-// app.json's extra.apiUrl defaults to UAT (through the external proxy, so it
-// works off the Econet network too; the proxy only forwards paths under /etl/), matching this project's standing
-// rule of only ever deploying to UAT unless explicitly asked - a PROD build
-// overrides this via an EAS build profile's environment config, not by
-// editing this default.
+// extra.apiUrl comes from app.config.ts: UAT unless the build ran with
+// APP_ENV=prod. Both go through the external proxy, so the app works off the
+// Econet network too (the proxy only forwards paths under /etl/).
 export const API = (Constants.expoConfig?.extra?.apiUrl as string) || "https://dt-externalproxy-1.etl.co.ls/etl/flowdesk/uat";
 
 function formatApiError(json: any, fallback: string) {
