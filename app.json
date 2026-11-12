@@ -70,7 +70,8 @@
         }
       ],
       "expo-sharing",
-      "./plugins/with-release-signing"
+      "./plugins/with-release-signing",
+      "./plugins/with-gradle-memory"
     ],
     "extra": {
       "eas": {

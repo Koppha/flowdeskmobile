@@ -13,9 +13,22 @@
 #   installed APK of the latest release over the air (no new APK). Only for
 #   JS-only changes: if native code changed since the last v* tag, the update
 #   matches no installed APK - tag a new release instead.
+# - PROD: the same tag pipeline has a manual "release_prod" button. One click
+#   builds the production app (APP_ENV=prod: "FlowDesk", ls.co.etl.flowdesk,
+#   the prod links), signs it with FlowDesk's release key, checks the
+#   signature, and uploads it to PROD's "Get the App". Test the tag on UAT
+#   first, then press it.
 #
 # CI/CD variables to set in GitLab (Settings > CI/CD > Variables, masked +
-# protected): FLOWDESK_ADMIN_EMAIL, FLOWDESK_ADMIN_PASSWORD (an ADMIN account).
+# protected): FLOWDESK_ADMIN_EMAIL, FLOWDESK_ADMIN_PASSWORD (an ADMIN account;
+# the same login works on UAT and PROD). For release_prod also:
+#   FLOWDESK_PROD_KEYSTORE_BASE64   keystores/flowdesk-release.keystore, base64
+#   FLOWDESK_PROD_KEYSTORE_PASSWORD, FLOWDESK_PROD_KEY_PASSWORD
+#                                   from keystores/release-signing.properties
+#   FLOWDESK_PROD_API_URL (optional) default http://10.3.10.49:4000 (PROD1;
+#                                   either PROD server works, builds are shared)
+# They're PROD-only names on purpose: UAT builds must not pick up the release
+# key (UAT phones have APKs signed with the debug key).
 
 stages:
   - check
@@ -94,6 +107,55 @@ publish_apk:
     - *release_tag
   script:
     - node scripts/upload-build.mjs --file "flowdesk-mobile-${APP_VERSION}.apk" --version "${APP_VERSION}"
+
+# ── PROD ─────────────────────────────────────────────────────────────────
+# One manual button on a release tag: build + sign + upload to PROD. One job
+# (not build then publish) so pressing it does the whole release.
+release_prod:
+  stage: publish
+  needs: [check]
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      when: manual
+      allow_failure: true
+  variables:
+    APP_ENV: prod
+    # SHA-256 of FlowDesk's release certificate (public - it's in every APK).
+    # The job refuses to upload an APK signed with anything else.
+    FLOWDESK_RELEASE_CERT_SHA256: "840c67482bd4c2f30e54175c3cf177bb9222f1153e5754d18f28261e70c629ff"
+  script:
+    - |
+      for v in FLOWDESK_PROD_KEYSTORE_BASE64 FLOWDESK_PROD_KEYSTORE_PASSWORD FLOWDESK_PROD_KEY_PASSWORD FLOWDESK_ADMIN_EMAIL FLOWDESK_ADMIN_PASSWORD; do
+        if [ -z "$(printenv "$v")" ]; then echo "CI/CD variable $v is not set (see the top of .gitlab-ci.yml)"; exit 1; fi
+      done
+    # The release key, only for this job: decoded to a private temp file.
+    - export FLOWDESK_KEYSTORE="$(mktemp /tmp/flowdesk-release-XXXXXX.keystore)"
+    - printf '%s' "$FLOWDESK_PROD_KEYSTORE_BASE64" | base64 -d > "$FLOWDESK_KEYSTORE"
+    - export FLOWDESK_KEYSTORE_PASSWORD="$FLOWDESK_PROD_KEYSTORE_PASSWORD" FLOWDESK_KEY_ALIAS=flowdesk FLOWDESK_KEY_PASSWORD="$FLOWDESK_PROD_KEY_PASSWORD"
+    - npm ci --no-audit --no-fund
+    - node scripts/set-version.mjs "${CI_COMMIT_TAG#v}"
+    - export APP_VERSION=$(node -p "require('./app.json').expo.version")
+    - CI=1 npx expo prebuild --platform android --clean --no-install
+    - ./android/gradlew -p android app:assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+    - cp android/app/build/outputs/apk/release/app-release.apk "flowdesk-prod-${APP_VERSION}.apk"
+    # Signed with the release key? (A phone can't update an APK signed with a different key.)
+    - APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+    - |
+      SIGNED_BY=$("$APKSIGNER" verify --print-certs "flowdesk-prod-${APP_VERSION}.apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+    - echo "Signed by ${SIGNED_BY}"
+    - test "$SIGNED_BY" = "$FLOWDESK_RELEASE_CERT_SHA256" || { echo "Not signed with FlowDesk's release key - not uploading."; exit 1; }
+    - echo "Runtime version:" && npx expo-updates runtimeversion:resolve --platform android | tail -1 | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).runtimeVersion"
+    # Straight to a PROD backend on the internal network (the proxies' body
+    # limits are lower than the APK). upload-build.mjs refuses a UAT address.
+    - export FLOWDESK_API_URL="${FLOWDESK_PROD_API_URL:-http://10.3.10.49:4000}"
+    - node scripts/upload-build.mjs --file "flowdesk-prod-${APP_VERSION}.apk" --version "${APP_VERSION}"
+  after_script:
+    - rm -f /tmp/flowdesk-release-*.keystore
+  artifacts:
+    name: "flowdesk-prod-$CI_COMMIT_REF_NAME"
+    paths:
+      - flowdesk-prod-*.apk
+    expire_in: 90 days
 
 publish_update:
   stage: publish
