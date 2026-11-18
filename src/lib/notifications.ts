@@ -122,6 +122,7 @@ function urlFor(data: Record<string, unknown> | undefined): string | null {
   const { docType, docId } = data;
   if (typeof docId !== "string" || typeof docType !== "string") return null;
   if (docType === "SIGNABLE_DOCUMENT") return `/sign?doc=${docId}`;
+  if (docType === "CUSTOM_REQUEST") return `/custom-processes?req=${docId}`;
   if (docType === "ADVANCE" || docType === "CLAIM") return `/item/${docId}?docType=${docType}`;
   return "/inbox";
 }

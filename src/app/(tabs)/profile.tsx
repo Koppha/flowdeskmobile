@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
-import { BellRing, ChevronRight, CircleHelp, Fingerprint, KeyRound, LogOut, Mail, PenLine, Phone, ScanFace } from "lucide-react-native";
+import { Alert, ScrollView, Share, Switch, Text, TouchableOpacity, View } from "react-native";
+import { BellRing, ChevronRight, CircleHelp, Fingerprint, KeyRound, LogOut, Mail, MessageSquareHeart, PenLine, Phone, ScanFace, Share2 } from "lucide-react-native";
+import Constants from "expo-constants";
 import { useFocusEffect, useRouter } from "expo-router";
 import { api } from "@/lib/api";
 import { enableNotifications } from "@/lib/notifications";
@@ -24,6 +25,22 @@ async function fireTest(scenario: TestScenario) {
   const result = await sendTestNotification(scenario);
   if (result.ok) Alert.alert("Test notification", `Arriving in ${TEST_DELAY_SECONDS}s - background the app to see it in the tray.`);
   else Alert.alert("Test notification", result.error);
+}
+
+// Profile > Share the app: the phone's share sheet (WhatsApp, email, SMS...)
+// with a short invite. The app itself is downloaded from the portal's
+// "Get the App" page, so the link is the portal (prod or UAT, per build).
+const PORTAL_URL = (Constants.expoConfig?.extra?.portalUrl as string | undefined) || "https://flowdesk.etl.co.ls";
+
+async function shareApp() {
+  const message =
+    "I'm using FlowDesk Mobile for advances, clearances and approvals on my phone. " +
+    `To get it, sign in to FlowDesk at ${PORTAL_URL} and open "Get the App".`;
+  try {
+    await Share.share({ message, title: "FlowDesk Mobile" }, { dialogTitle: "Share FlowDesk Mobile" });
+  } catch {
+    Alert.alert("Can't share", "Sharing isn't available on this device.");
+  }
 }
 
 function initials(fullName: string) {
@@ -261,6 +278,27 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        <Text style={[styles.sectionLabel, styles.devLabel]}>FlowDesk Mobile</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.row} onPress={shareApp} accessibilityRole="button">
+            <Share2 size={18} color={colors.muted} strokeWidth={1.8} />
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Share the app</Text>
+              <Text style={styles.rowHint}>Invite a colleague to FlowDesk Mobile</Text>
+            </View>
+            <ChevronRight size={18} color={colors.muted} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.row, styles.rowBorder]} onPress={() => router.push("/feedback")} accessibilityRole="button">
+            <MessageSquareHeart size={18} color={colors.muted} strokeWidth={1.8} />
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Leave feedback</Text>
+              <Text style={styles.rowHint}>Rate the app and tell us what to improve</Text>
+            </View>
+            <ChevronRight size={18} color={colors.muted} />
+          </TouchableOpacity>
+        </View>
+        <Text style={[styles.rowHint, styles.versionNote]}>Version {Constants.expoConfig?.version ?? "–"}</Text>
+
         {__DEV__ && (
           <>
             <Text style={[styles.sectionLabel, styles.devLabel]}>Test notifications (dev only)</Text>
@@ -310,6 +348,7 @@ const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 14, paddingHorizontal: spacing.lg },
   rowBorder: { borderTopWidth: 1, borderTopColor: colors.border },
   devLabel: { marginTop: spacing.lg },
+  versionNote: { textAlign: "center", marginTop: spacing.sm },
   rowLabel: { flex: 1, fontSize: 14, fontWeight: "500", color: colors.ink },
   rowText: { flex: 1 },
   rowHint: { fontSize: 12, color: colors.muted, marginTop: 2 },

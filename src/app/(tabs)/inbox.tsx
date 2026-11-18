@@ -55,14 +55,18 @@ function itemMeta(item: InboxItem, colors: Colors) {
       kindColor: colors.info
     };
   }
+  const assigneeOnly = item.is_assignee_task && !item.current_step_actionable_by_me;
   return {
-    kind: "Custom Process",
-    title: item.request_type_name,
-    subtitle: item.current_step_position_name || item.status,
+    kind: item.request_type_name || "Custom Process",
+    title: item.requester_name || item.request_type_name,
+    subtitle: assigneeOnly ? "Confirm you're ready (assignee)" : item.current_step_position_name || item.status,
     amount: null as string | null,
-    kindColor: colors.muted
+    kindColor: colors.purple
   };
 }
+
+/** Waiting on me: my approval step, or (custom processes) my confirmation as an assignee. */
+const isMine = (i: InboxItem) => i.current_step_actionable_by_me || (i.doc_type === "CUSTOM_REQUEST" && Boolean(i.is_assignee_task));
 
 export default function InboxScreen() {
   const { colors } = useTheme();
@@ -81,7 +85,7 @@ export default function InboxScreen() {
     try {
       const [res, config] = await Promise.all([api.inbox(), api.mobileConfig().catch(() => null)]);
       const modules = mergeModules(config?.modules);
-      const actionable = (res.items || []).filter((i) => i.current_step_actionable_by_me);
+      const actionable = (res.items || []).filter(isMine);
       const visible = actionable.filter((i) => isDocTypeEnabled(i.doc_type, modules));
       setItems(visible);
       setHiddenCount(actionable.length - visible.length);
@@ -151,9 +155,11 @@ export default function InboxScreen() {
               ref={(r) => {
                 rowRefs.current[item.id] = r;
               }}
-              // Signing needs a placed signature, maintenance has its own steps
-              // and a support chat needs an answer, so none gets swipe-to-approve.
-              enabled={!["SIGNABLE_DOCUMENT", "MAINTENANCE_REQUEST", "SUPPORT_CHAT"].includes(item.doc_type)}
+              // Signing needs a placed signature, maintenance has its own steps,
+              // a support chat needs an answer and a custom process step may need
+              // something written (e.g. a supervisor's justification), so none
+              // gets swipe-to-approve.
+              enabled={!["SIGNABLE_DOCUMENT", "MAINTENANCE_REQUEST", "SUPPORT_CHAT", "CUSTOM_REQUEST"].includes(item.doc_type)}
               renderRightActions={() => (
                 <View style={styles.actions}>
                   <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.bad }]} onPress={() => goReject(item)}>
@@ -174,7 +180,9 @@ export default function InboxScreen() {
                       ? router.push({ pathname: "/maintenance", params: { req: item.id } })
                       : item.doc_type === "SUPPORT_CHAT"
                         ? router.push({ pathname: "/web", params: { go: "support" } })
-                        : router.push({ pathname: "/item/[id]", params: { id: item.id, docType: item.doc_type, name: meta.title } })
+                        : item.doc_type === "CUSTOM_REQUEST"
+                          ? router.push({ pathname: "/custom-processes", params: { req: item.id } })
+                          : router.push({ pathname: "/item/[id]", params: { id: item.id, docType: item.doc_type, name: meta.title } })
                 }
               >
                 <View style={styles.rowContent}>

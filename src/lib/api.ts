@@ -111,9 +111,12 @@ export type CustomRequestInboxItem = {
   id: string;
   status: string;
   request_type_name: string;
+  request_type_code?: string;
   requester_name?: string;
   current_step_position_name?: string | null;
   current_step_actionable_by_me?: boolean;
+  /** I'm an assignee (e.g. Change Assignee) who still has to confirm, before the approvers. */
+  is_assignee_task?: boolean;
 };
 
 // A routed document waiting for my signature (signatures module).
@@ -227,6 +230,10 @@ export const api = {
   /** A two-minute token for downloading the release (GET /mobile-app/download?token=). */
   downloadToken: () => req("/mobile-app/download-token") as Promise<{ token: string }>,
 
+  /** Profile > Leave feedback: a message in my Help & support chat, so the admins see it and can reply. */
+  sendFeedback: (body: string) =>
+    req("/mobile-app/support/me/messages", { method: "POST", body: JSON.stringify({ body }) }),
+
   /** Admin Analytics: the app was opened/unlocked. Fire-and-forget - never blocks or errors the app. */
   trackOpen: () => {
     req("/mobile-app/events", { method: "POST", body: JSON.stringify({ type: "OPEN" }) }).catch(() => {});
@@ -314,6 +321,10 @@ export const api = {
     employee_no?: string;
   }) => req("/auth/complete-profile", { method: "POST", body: JSON.stringify(data) }) as Promise<{ token: string }>,
   updatePhone: (phone: string) => req("/auth/me/profile", { method: "PATCH", body: JSON.stringify({ phone }) }),
+  /** The "add your phone number" prompt: what the person did, for the admins' report (sms.routes.ts). Fire-and-forget. */
+  phonePromptEvent: (event: "SHOWN" | "SAVED" | "LATER") => {
+    req("/sms/prompt-event", { method: "POST", body: JSON.stringify({ event }) }).catch(() => {});
+  },
 
   /** Managers: their direct reports (reporting-lines.routes.ts GET /my-team). */
   myTeam: () => req("/reporting-lines/my-team") as Promise<MyTeamResponse>,

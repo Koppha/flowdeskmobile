@@ -8,8 +8,9 @@ const path = require("path");
 const PROXY = "https://dt-externalproxy-1.etl.co.ls/etl/flowdesk";
 
 const ENVIRONMENTS = {
-  prod: { name: "FlowDesk", id: "ls.co.etl.flowdesk", apiUrl: `${PROXY}/prod` },
-  uat: { name: "FlowDesk UAT", id: "ls.co.etl.flowdesk.uat", apiUrl: `${PROXY}/uat` }
+  // portalUrl: the web portal, where "Get the App" lives (Profile > Share the app).
+  prod: { name: "FlowDesk", id: "ls.co.etl.flowdesk", apiUrl: `${PROXY}/prod`, portalUrl: "https://flowdesk.etl.co.ls" },
+  uat: { name: "FlowDesk UAT", id: "ls.co.etl.flowdesk.uat", apiUrl: `${PROXY}/uat`, portalUrl: "https://flowdeskuat.etl.co.ls" }
 };
 
 // UAT gets its own package so testers can have both apps on one phone. Push
@@ -34,6 +35,6 @@ module.exports = ({ config }) => {
     ios: { ...config.ios, bundleIdentifier: id },
     android: { ...config.android, package: id },
     updates: { ...config.updates, url: `${env.apiUrl}/mobile-app/updates/manifest` },
-    extra: { ...config.extra, apiUrl: env.apiUrl, appEnv }
+    extra: { ...config.extra, apiUrl: env.apiUrl, portalUrl: env.portalUrl, appEnv }
   };
 };

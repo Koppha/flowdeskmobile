@@ -27,7 +27,7 @@ const MODULE_DEFS: {
   icon: LucideIcon;
   color: keyof Colors;
   bg: keyof Colors;
-  route?: "/my-advances" | "/my-clearances" | "/sign" | "/maintenance" | "/my-team" | "/delegation";
+  route?: "/my-advances" | "/my-clearances" | "/sign" | "/maintenance" | "/custom-processes" | "/my-team" | "/delegation";
   /** Only these roles see the tile (in addition to the admin switch). */
   roles?: string[];
   /** Also shown, whatever the role, to anyone on a workflow step that allows delegation. */
@@ -37,7 +37,7 @@ const MODULE_DEFS: {
   { key: "clearances", label: "Clearances", icon: CheckCircle2, color: "good", bg: "goodSoft", route: "/my-clearances" },
   { key: "overtime", label: "Overtime", icon: Clock3, color: "warn", bg: "warnSoft" },
   { key: "standby", label: "Standby", icon: Radio, color: "info", bg: "infoSoft" },
-  { key: "customProcesses", label: "Custom Processes", icon: GitBranch, color: "purple", bg: "purpleSoft" },
+  { key: "customProcesses", label: "Custom Processes", icon: GitBranch, color: "purple", bg: "purpleSoft", route: "/custom-processes" },
   { key: "signADocument", label: "Sign a Document", icon: FileSignature, color: "accent", bg: "accentSoft", route: "/sign" },
   { key: "maintenance", label: "Maintenance", icon: Wrench, color: "warn", bg: "warnSoft", route: "/maintenance" },
   { key: "myTeam", label: "My Team", icon: Users, color: "info", bg: "infoSoft", route: "/my-team", roles: TEAM_ROLES },
@@ -73,7 +73,9 @@ export default function HomeScreen() {
       const [inboxRes, advancesRes, configRes] = await Promise.all([api.inbox(), api.myAdvances(), api.mobileConfig()]);
       const items: InboxItem[] = inboxRes.items || [];
       const modules = mergeModules(configRes?.modules);
-      setPendingCount(items.filter((i) => i.current_step_actionable_by_me && isDocTypeEnabled(i.doc_type, modules)).length);
+      // Same as the Inbox: my approval step, or a custom process waiting on my confirmation as an assignee.
+      const mine = (i: InboxItem) => i.current_step_actionable_by_me || (i.doc_type === "CUSTOM_REQUEST" && Boolean(i.is_assignee_task));
+      setPendingCount(items.filter((i) => mine(i) && isDocTypeEnabled(i.doc_type, modules)).length);
       const advances = Array.isArray(advancesRes) ? advancesRes : advancesRes.items || [];
       setInProgressCount(advances.filter((a: any) => !["DRAFT", "PAID", "CANCELLED", "REJECTED"].includes(a.status)).length);
       if (configRes?.modules) setEnabledModules(mergeModules(configRes.modules));

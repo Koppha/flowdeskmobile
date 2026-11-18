@@ -11,7 +11,8 @@ import { Panes, useLayout } from "@/components/layout";
 import { KeyboardAvoider, KeyboardScrollView } from "@/components/keyboard";
 import { layout, makeStyles, radii, spacing, useTheme } from "@/theme";
 
-type DocType = "ADVANCE" | "CLAIM" | "CUSTOM_REQUEST";
+// Custom processes open their own screen (/custom-processes), not this one.
+type DocType = "ADVANCE" | "CLAIM";
 
 // Approver's review screen: everything needed to decide (itinerary, dates,
 // day-by-day amounts, reconciliation, approval route), then Approve/Reject.

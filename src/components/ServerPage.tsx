@@ -27,10 +27,14 @@ function isServerPage(url: string) {
 // is downloaded with the session token, then handed to the share sheet
 // (Save to Files, email, WhatsApp...). Only signature PDFs are accepted -
 // the page can't use this to fetch arbitrary API paths.
+// Custom Processes add a request's PDF and its attachments (any file type).
 const SHAREABLE = /^\/signatures\/(documents\/)?[0-9a-f-]{36}\/file$/i;
+const SHAREABLE_CUSTOM_PDF = /^\/custom-requests\/[0-9a-f-]{36}\/pdf$/i;
+const SHAREABLE_ATTACHMENT = /^\/custom-requests\/[0-9a-f-]{36}\/attachments\/[0-9a-f-]{36}$/i;
 
 async function sharePdf(path: string, title: string, token: string) {
-  if (!SHAREABLE.test(path)) return;
+  const isAttachment = SHAREABLE_ATTACHMENT.test(path);
+  if (!SHAREABLE.test(path) && !SHAREABLE_CUSTOM_PDF.test(path) && !isAttachment) return;
   if (!(await Sharing.isAvailableAsync())) {
     Alert.alert("Can't share", "Sharing isn't available on this device.");
     return;
@@ -41,7 +45,8 @@ async function sharePdf(path: string, title: string, token: string) {
   dir.create({ intermediates: true, idempotent: true });
   const file = await File.createDownloadTask(`${API}${path}?download=1`, dir, { headers: { Authorization: `Bearer ${token}` } }).downloadAsync();
   if (!file) return;
-  await Sharing.shareAsync(file.uri, { mimeType: "application/pdf", dialogTitle: title, UTI: "com.adobe.pdf" });
+  // An attachment can be anything (photo, Word, Excel): let the share sheet work out its type.
+  await Sharing.shareAsync(file.uri, isAttachment ? { dialogTitle: title } : { mimeType: "application/pdf", dialogTitle: title, UTI: "com.adobe.pdf" });
 }
 
 // The WebView's own <input type="file"> doesn't reliably hand pictures back
@@ -69,7 +74,7 @@ async function pickPhotos(source: "camera" | "library", max: number): Promise<Na
     .map((a, i) => ({ dataUrl: `data:${a.mimeType || "image/jpeg"};base64,${a.base64}`, name: a.fileName || `photo-${Date.now()}-${i}.jpg` }));
 }
 
-export type ServerSection = "sign" | "maintenance" | "account";
+export type ServerSection = "sign" | "maintenance" | "account" | "custom";
 
 export default function ServerPage({ section, docId, requestId, start }: { section: ServerSection; docId?: string; requestId?: string; start?: string }) {
   const { colors, isDark } = useTheme();
@@ -171,7 +176,8 @@ export default function ServerPage({ section, docId, requestId, start }: { secti
     // A named screen to open first (/web?go=phone).
     start: start || undefined,
     // What this build can do for the page; older builds send none.
-    capabilities: ["headerAction", "nativePhotos", "title"]
+    // customFiles: shares a custom request's PDF and attachments (sharePdf above).
+    capabilities: ["headerAction", "nativePhotos", "title", "customFiles"]
   });
 
   return (

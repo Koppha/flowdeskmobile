@@ -8,6 +8,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider, type Theme } from "expo-router/
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 import UnlockPanel from "@/components/UnlockPanel";
+import PhonePrompt from "@/components/PhonePrompt";
 import { useNotificationRouting } from "@/lib/notifications";
 import { ThemeProvider as AppThemeProvider, layout, makeStyles, useTheme, type Colors } from "@/theme";
 
@@ -43,7 +44,8 @@ function RootNavigation() {
   const segments = useSegments();
   const router = useRouter();
   const top = segments[0] as string | undefined;
-  useNotificationRouting(status === "signedIn" && !sessionLocked && top !== undefined && !AUTH_SCREENS.includes(top));
+  const inApp = status === "signedIn" && !sessionLocked && top !== undefined && !AUTH_SCREENS.includes(top);
+  useNotificationRouting(inApp);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -83,7 +85,9 @@ function RootNavigation() {
         <Stack.Screen name="advance/[id]" options={{ headerShown: true, title: "Advance" }} />
         <Stack.Screen name="sign" options={{ headerShown: true, title: "Sign a Document" }} />
         <Stack.Screen name="maintenance" options={{ headerShown: true, title: "Maintenance" }} />
+        <Stack.Screen name="custom-processes" options={{ headerShown: true, title: "Custom Processes" }} />
         <Stack.Screen name="web" options={{ headerShown: true, title: "" }} />
+        <Stack.Screen name="feedback" options={{ headerShown: true, title: "Leave feedback" }} />
         <Stack.Screen name="assistant" options={{ headerShown: true, title: "AI Assistant" }} />
         <Stack.Screen name="my-team" options={{ headerShown: true, title: "My Team" }} />
         <Stack.Screen name="delegation" options={{ headerShown: true, title: "Delegation" }} />
@@ -98,6 +102,9 @@ function RootNavigation() {
           <UnlockPanel />
         </View>
       )}
+      {/* No phone number on the profile: ask for one at every login/unlock (as the web portal does). */}
+      <PhonePrompt active={inApp && profileComplete} />
+
     </>
   );
 }
