@@ -32,11 +32,13 @@ const SHAREABLE = /^\/signatures\/(documents\/)?[0-9a-f-]{36}\/file$/i;
 const SHAREABLE_CUSTOM_PDF = /^\/custom-requests\/[0-9a-f-]{36}\/pdf$/i;
 const SHAREABLE_ATTACHMENT = /^\/custom-requests\/[0-9a-f-]{36}\/attachments\/[0-9a-f-]{36}$/i;
 // Overtime and Standby (capability "hrFiles"): a request's or claim's PDF.
+// BRS (capability "brsFiles"): a BRS document's PDF.
+const SHAREABLE_BRS_PDF = /^\/brs\/[0-9a-f-]{36}\/pdf$/i;
 const SHAREABLE_HR_PDF = /^\/(overtime\/(requests|claims)|standby\/claims)\/[0-9a-f-]{36}\/pdf$/i;
 
 async function sharePdf(path: string, title: string, token: string) {
   const isAttachment = SHAREABLE_ATTACHMENT.test(path);
-  if (!SHAREABLE.test(path) && !SHAREABLE_CUSTOM_PDF.test(path) && !SHAREABLE_HR_PDF.test(path) && !isAttachment) return;
+  if (!SHAREABLE.test(path) && !SHAREABLE_CUSTOM_PDF.test(path) && !SHAREABLE_HR_PDF.test(path) && !SHAREABLE_BRS_PDF.test(path) && !isAttachment) return;
   if (!(await Sharing.isAvailableAsync())) {
     Alert.alert("Can't share", "Sharing isn't available on this device.");
     return;
@@ -180,7 +182,8 @@ export default function ServerPage({ section, docId, requestId, start }: { secti
     // What this build can do for the page; older builds send none.
     // customFiles: shares a custom request's PDF and attachments (sharePdf above).
     // hrFiles: shares Overtime / Standby PDFs.
-    capabilities: ["headerAction", "nativePhotos", "title", "customFiles", "hrFiles"]
+    // brsFiles: shares a BRS's PDF.
+    capabilities: ["headerAction", "nativePhotos", "title", "customFiles", "hrFiles", "brsFiles"]
   });
 
   return (
