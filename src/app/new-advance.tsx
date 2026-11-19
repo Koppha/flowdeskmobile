@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Plus, Trash2 } from "lucide-react-native";
+import { Copy, Plus, Trash2 } from "lucide-react-native";
 import {
   api,
   type Airport,
@@ -109,6 +109,10 @@ export default function NewAdvanceScreen() {
   const [draftId, setDraftId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  // "Same as last time": my most recent travel advance, offered until the form is touched.
+  const [lastAdvance, setLastAdvance] = useState<{ id: string; label: string } | null>(null);
+  const [copying, setCopying] = useState(false);
+  const [copiedNote, setCopiedNote] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -123,7 +127,21 @@ export default function NewAdvanceScreen() {
           api.myPaPrincipals().catch(() => [] as DirectoryUser[])
         ]);
         setFlags(f);
-        setTravelTypes(types.filter((t) => t.active !== false));
+        const activeTypes = types.filter((t) => t.active !== false);
+        setTravelTypes(activeTypes);
+        api
+          .myAdvances()
+          .then((res: any) => {
+            const list: any[] = Array.isArray(res) ? res : res?.items || [];
+            const last = list
+              .filter((a) => a.status !== "DRAFT" && activeTypes.some((t) => t.code === a.type))
+              .sort((a, b) => String(b.submitted_at || b.created_at || "").localeCompare(String(a.submitted_at || a.created_at || "")))[0];
+            if (last) {
+              const name = activeTypes.find((t) => t.code === last.type)?.name || String(last.type).replace(/_/g, " ");
+              setLastAdvance({ id: last.id, label: last.purpose ? `${name} · ${last.purpose}` : name });
+            }
+          })
+          .catch(() => {});
         setDirectory(dir);
         setPrincipals(pas);
         if (isPermanent(me)) api.externalPayees().then(setPayees).catch(() => setPayees([]));
@@ -321,6 +339,62 @@ export default function NewAdvanceScreen() {
     }
   }
 
+  // --- Same as last time ---
+  // Copies what repeats from trip to trip - type, purpose, route, how it's
+  // paid - from my last travel advance. Dates restart from today and extra
+  // costs are left out: those are this trip's own.
+  async function copyLast() {
+    if (!lastAdvance) return;
+    setCopying(true);
+    try {
+      const a: any = await api.advanceDetail(lastAdvance.id);
+      const t = travelTypes.find((x) => x.code === a.type);
+      if (!t) throw new Error("That advance's travel type isn't available any more.");
+      setRequestFor(SELF);
+      setTypeCode(t.code);
+      setPurpose(String(a.purpose || ""));
+      if (a.payment_method === "BANK") {
+        setPaymentMethod("BANK");
+        setBankName(String(a.bank_name || ""));
+        setBankAccount(String(a.bank_account_number || ""));
+        setBankBranch(String(a.bank_branch || ""));
+      } else {
+        setPaymentMethod("ECOCASH");
+        setEcocash(String(a.ecocash_number || a.payment_account || ""));
+      }
+      const lines: any[] = (Array.isArray(a.lines) ? a.lines : []).slice().sort((x: any, y: any) => String(x.line_date).localeCompare(String(y.line_date)));
+      if (t.location_mode === "COUNTRY_CITY") {
+        const meta = lines[0]?.travel_meta || {};
+        if (meta.city && meta.country) {
+          setDestManual(true);
+          setDestCity(String(meta.city));
+          setDestCountry(String(meta.country));
+          setProvince(String(meta.province || ""));
+        }
+        setDeparture("");
+        setReturnDate("");
+        setCopiedNote("Copied from your last advance. Add where you're flying from and this trip's dates.");
+      } else {
+        const today = todayIso();
+        const copied: DayRow[] = lines
+          .filter((l) => l.travel_meta?.startDistrict && l.travel_meta?.destinationDistrict)
+          .map((l, i) => ({
+            date: addDays(today, i),
+            start: String(l.travel_meta.startDistrict),
+            dest: String(l.travel_meta.destinationDistrict),
+            units: t.rate_kind === "DAILY" ? "" : String(Math.min(Number(l.meals_count) || 0, maxUnitsForRow(t, i)) || "")
+          }));
+        setRows(copied.length ? copied : [{ date: today, start: "", dest: "", units: "" }]);
+        setCopiedNote("Copied from your last advance. The days now start today - change the dates to this trip's.");
+      }
+      setLastAdvance(null);
+    } catch (e: any) {
+      Alert.alert("Couldn't copy it", e?.message || "Check your connection and try again.");
+    } finally {
+      setCopying(false);
+    }
+  }
+
   // --- Validate & submit ---
   function validate(): string[] {
     const e: string[] = [];
@@ -506,6 +580,21 @@ export default function NewAdvanceScreen() {
   return (
     <KeyboardAvoider style={formStyles.flex}>
       <KeyboardScrollView style={formStyles.screen} contentContainerStyle={[formStyles.content, { paddingHorizontal: gutter() }]} keyboardShouldPersistTaps="handled">
+        {lastAdvance && !typeCode && !draftId && requestFor === SELF && (
+          <TouchableOpacity
+            style={[copyStyles.banner, { borderColor: colors.border, backgroundColor: colors.accentSoft }]}
+            onPress={copyLast}
+            disabled={copying}
+            accessibilityRole="button"
+          >
+            <Copy size={18} color={colors.accent} />
+            <View style={copyStyles.text}>
+              <Text style={[copyStyles.title, { color: colors.ink }]}>{copying ? "Copying…" : "Same as last time"}</Text>
+              <Text style={[copyStyles.sub, { color: colors.muted }]} numberOfLines={1}>{lastAdvance.label}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+        {copiedNote && <Text style={[copyStyles.note, { color: colors.muted }]}>{copiedNote}</Text>}
         {requestForOptions.length > 1 && (
           <Section title="Request for">
             <Field label="Who is this advance for?" hint={draftId ? "Locked - a draft already exists for this person." : undefined}>
@@ -829,3 +918,11 @@ export default function NewAdvanceScreen() {
     </KeyboardAvoider>
   );
 }
+
+const copyStyles = StyleSheet.create({
+  banner: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderWidth: 1, borderRadius: 12, marginBottom: 12 },
+  text: { flex: 1 },
+  title: { fontSize: 14.5, fontWeight: "700" },
+  sub: { fontSize: 12.5, marginTop: 2 },
+  note: { fontSize: 12.5, marginBottom: 12, lineHeight: 18 }
+});
