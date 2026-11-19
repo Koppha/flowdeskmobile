@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
-  Briefcase, Calendar, CheckCircle2, CircleHelp, ClipboardList, Clock3, FileSignature, GitBranch, LayoutGrid, Megaphone, MessageCircle,
+  BarChart3, Briefcase, Calendar, ChevronRight, Search, CheckCircle2, CircleHelp, ClipboardList, Clock3, FileSignature, GitBranch, LayoutGrid, Megaphone, MessageCircle,
   Radio, ShieldCheck, Sparkles, Truck, UserCheck, Users, Wrench, type LucideIcon
 } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
@@ -10,6 +10,7 @@ import { api, DELEGATING_ROLES, TEAM_ROLES, type InboxItem, type ModuleKey, type
 import ModuleTile from "@/components/ModuleTile";
 import UpdateBanner from "@/components/UpdateBanner";
 import { DEFAULT_MODULES, isDocTypeEnabled, mergeModules } from "@/lib/mobile-modules";
+import { fmtMoney } from "@/lib/request-forms";
 import { Grid, useLayout } from "@/components/layout";
 import { layout, makeStyles, radii, spacing, useTheme, type Colors } from "@/theme";
 
@@ -44,6 +45,20 @@ const MODULE_DEFS: {
   { key: "delegation", label: "Delegation", icon: UserCheck, color: "purple", bg: "purpleSoft", route: "/delegation", roles: DELEGATING_ROLES, orDelegationEligible: true }
 ];
 
+type WeekLine = { key: string; text: string; tone: "accent" | "warn" | "bad" | "muted"; go: () => void };
+
+/** Whole days since an ISO date (0 for today or unknown). */
+function daysSince(iso?: string | null) {
+  const t = iso ? new Date(iso).getTime() : NaN;
+  return Number.isFinite(t) ? Math.floor((Date.now() - t) / 86_400_000) : 0;
+}
+
+/** "Good morning" before noon, "Good afternoon" until 6pm, then "Good evening" - phone's local time. */
+function greetingFor(date: Date) {
+  const h = date.getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
+
 export default function HomeScreen() {
   const { colors } = useTheme();
   const styles = useStyles();
@@ -63,6 +78,8 @@ export default function HomeScreen() {
   // that allows delegation may delegate it (same rule as the portal's menu).
   const [delegationEligible, setDelegationEligible] = useState(false);
   const role = user?.role || "";
+  // "Your week": the few things worth doing now, built from what Home already loads.
+  const [week, setWeek] = useState<WeekLine[]>([]);
 
   const load = useCallback(async () => {
     api.assistantStatus().then((s) => setAssistantReady(Boolean(s?.configured))).catch(() => setAssistantReady(false));
@@ -79,13 +96,46 @@ export default function HomeScreen() {
       const advances = Array.isArray(advancesRes) ? advancesRes : advancesRes.items || [];
       setInProgressCount(advances.filter((a: any) => !["DRAFT", "PAID", "CANCELLED", "REJECTED"].includes(a.status)).length);
       if (configRes?.modules) setEnabledModules(mergeModules(configRes.modules));
+
+      const lines: WeekLine[] = [];
+      const waiting = items.filter((i) => mine(i) && isDocTypeEnabled(i.doc_type, modules));
+      if (waiting.length) {
+        const oldest = Math.max(0, ...waiting.map((i) => daysSince(i.submitted_at || i.created_at)));
+        lines.push({
+          key: "approve",
+          tone: oldest >= 3 ? "warn" : "accent",
+          text: `${waiting.length} waiting on your approval${oldest >= 1 ? ` · oldest ${oldest} day${oldest === 1 ? "" : "s"}` : ""}`,
+          go: () => router.push("/(tabs)/inbox")
+        });
+      }
+      const drafts = advances.filter((a: any) => a.status === "DRAFT");
+      if (drafts.length) {
+        lines.push({
+          key: "drafts",
+          tone: "muted",
+          text: `${drafts.length} advance draft${drafts.length === 1 ? "" : "s"} not sent yet`,
+          go: () => router.push(drafts.length === 1 ? `/advance/${drafts[0].id}` : "/my-advances")
+        });
+      }
+      // Clearances due: only for people the AI Assistant is open to (that's where the endpoint lives).
+      const due = await api.assistantReminders().then((r) => r.clearances || []).catch(() => []);
+      for (const c of due.filter((d) => d.overdue || d.days_left <= 7).slice(0, 2)) {
+        lines.push({
+          key: `clear-${c.advance_id}`,
+          tone: c.overdue ? "bad" : "warn",
+          text: `Clear ${c.reference} (${fmtMoney(Number(c.amount), c.currency)}) - ${c.due_text}`,
+          go: () =>
+            router.push(c.draft_clearance_id ? { pathname: "/new-clearance", params: { claim: c.draft_clearance_id } } : { pathname: "/new-clearance", params: { advance: c.advance_id } })
+        });
+      }
+      setWeek(lines);
       setWebTiles(Array.isArray(configRes?.webTiles) ? configRes.webTiles.filter((t) => /^[a-z0-9-]{1,40}$/.test(t.go) && t.label) : []);
     } catch {
       // Home's stats/module list are a convenience, not critical - leave
       // stats blank and fall back to defaults rather than blocking the
       // screen with an error state.
     }
-  }, [role]);
+  }, [role, router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -113,9 +163,13 @@ export default function HomeScreen() {
           <View style={styles.brandMark} />
           <Text style={styles.brandLabel}>FlowDesk</Text>
         </View>
-        <Text style={styles.greeting}>Good afternoon, {firstName}</Text>
+        <Text style={styles.greeting}>{greetingFor(new Date())}, {firstName}</Text>
         <Text style={styles.subGreeting}>Here&apos;s what&apos;s moving today</Text>
         <UpdateBanner />
+        <TouchableOpacity style={styles.searchBar} onPress={() => router.push("/search")} accessibilityRole="search">
+          <Search size={17} color={colors.muted} />
+          <Text style={styles.askText}>Search requests and screens</Text>
+        </TouchableOpacity>
         {assistantReady && (
           <TouchableOpacity style={styles.askBar} onPress={() => router.push("/assistant")} accessibilityRole="button">
             <Sparkles size={18} color={colors.accent} />
@@ -132,6 +186,28 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.statCard} onPress={() => router.push("/my-advances")}>
           <Text style={styles.statValue}>{inProgressCount ?? "–"}</Text>
           <Text style={styles.statLabel}>Your advance in progress</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.weekSection, padX]}>
+        {week.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Your week</Text>
+            <View style={styles.weekCard}>
+              {week.map((l, i) => (
+                <TouchableOpacity key={l.key} style={[styles.weekRow, i > 0 && styles.weekBorder]} onPress={l.go} accessibilityRole="button">
+                  <View style={[styles.weekDot, { backgroundColor: colors[l.tone] }]} />
+                  <Text style={styles.weekText}>{l.text}</Text>
+                  <ChevronRight size={16} color={colors.muted} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+        <TouchableOpacity style={styles.insightsLink} onPress={() => router.push("/insights")} accessibilityRole="button">
+          <BarChart3 size={16} color={colors.accent} />
+          <Text style={styles.insightsLabel}>Your spending insights</Text>
+          <ChevronRight size={16} color={colors.accent} />
         </TouchableOpacity>
       </View>
 
@@ -182,11 +258,20 @@ const useStyles = makeStyles((colors) => ({
   greeting: { marginTop: 12, fontSize: 22, fontWeight: "700", color: colors.ink },
   subGreeting: { fontSize: 13, color: colors.muted, marginTop: 2 },
   askBar: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md, paddingVertical: 11, paddingHorizontal: 14, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.accentSoft },
+  searchBar: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md, paddingVertical: 11, paddingHorizontal: 14, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.paper1 },
+  weekSection: { paddingTop: spacing.lg },
+  weekCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, overflow: "hidden" },
+  weekRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: 12, paddingHorizontal: spacing.md },
+  weekBorder: { borderTopWidth: 1, borderTopColor: colors.border },
+  weekDot: { width: 8, height: 8, borderRadius: 4 },
+  weekText: { flex: 1, fontSize: 13.5, color: colors.ink },
+  insightsLink: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.md, alignSelf: "flex-start", paddingVertical: 4 },
+  insightsLabel: { fontSize: 13.5, fontWeight: "700", color: colors.accent },
   askText: { fontSize: 14, color: colors.muted, flex: 1 },
   statsRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   statCard: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, padding: spacing.md },
   statValue: { fontSize: 22, fontWeight: "700", color: colors.ink },
   statLabel: { fontSize: 11.5, color: colors.muted, marginTop: 2 },
-  modulesSection: { paddingTop: spacing.lg, paddingBottom: spacing.xxl },
+  modulesSection: { paddingTop: spacing.md, paddingBottom: spacing.xxl },
   sectionLabel: { fontSize: 12.5, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: spacing.md }
 }));

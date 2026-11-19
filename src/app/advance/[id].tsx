@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
-import { Clock3, X } from "lucide-react-native";
+import { BellRing, Clock3, X } from "lucide-react-native";
 import { api } from "@/lib/api";
 import { fmtMoney, formatWhen } from "@/lib/request-forms";
 import { statusLabel, toneFor } from "@/lib/status";
@@ -53,6 +53,9 @@ export default function AdvanceTrackingScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // "Remind approver": once per visit is plenty - it emails them.
+  const [reminding, setReminding] = useState(false);
+  const [reminded, setReminded] = useState(false);
   const { gutter, twoPane } = useLayout();
 
   const load = useCallback(async () => {
@@ -95,6 +98,19 @@ export default function AdvanceTrackingScreen() {
         }
       }
     ]);
+  }
+
+  async function remind() {
+    setReminding(true);
+    try {
+      await api.remindAdvance(id);
+      setReminded(true);
+      Alert.alert("Reminder sent", "We've emailed your approver a reminder about this request.");
+    } catch (e: any) {
+      Alert.alert("Couldn't send the reminder", e?.message || "Check your connection and try again.");
+    } finally {
+      setReminding(false);
+    }
   }
 
   if (loading) {
@@ -153,6 +169,17 @@ export default function AdvanceTrackingScreen() {
               {advance.is_overdue ? " - overdue" : ""}
             </Text>
           </View>
+        )}
+        {waitingOn && (
+          <TouchableOpacity
+            style={[styles.remind, (reminding || reminded) && styles.remindOff]}
+            onPress={remind}
+            disabled={reminding || reminded}
+            accessibilityRole="button"
+          >
+            <BellRing size={15} color={colors.accent} />
+            <Text style={styles.remindLabel}>{reminded ? "Reminder sent" : reminding ? "Sending…" : "Remind approver"}</Text>
+          </TouchableOpacity>
         )}
         {rejection && (status === "REJECTED" || status === "DRAFT") && (
           <View style={[styles.banner, styles.bannerBad]}>
@@ -232,6 +259,9 @@ const useStyles = makeStyles((colors) => ({
   banner: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: spacing.md, padding: spacing.md, borderRadius: radii.md, backgroundColor: colors.warnSoft },
   bannerBad: { backgroundColor: colors.badSoft },
   bannerText: { flex: 1, fontSize: 13, color: colors.ink, lineHeight: 18 },
+  remind: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 6, marginTop: spacing.sm, paddingVertical: 6 },
+  remindOff: { opacity: 0.5 },
+  remindLabel: { fontSize: 13.5, fontWeight: "700", color: colors.accent },
   draftActions: { marginTop: spacing.md, gap: spacing.sm },
   error: { fontSize: 13, color: colors.bad, lineHeight: 18 },
   sectionLabel: { fontSize: 12.5, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: spacing.sm },

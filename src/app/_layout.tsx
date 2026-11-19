@@ -88,6 +88,8 @@ function RootNavigation() {
         <Stack.Screen name="custom-processes" options={{ headerShown: true, title: "Custom Processes" }} />
         <Stack.Screen name="web" options={{ headerShown: true, title: "" }} />
         <Stack.Screen name="feedback" options={{ headerShown: true, title: "Leave feedback" }} />
+        <Stack.Screen name="search" options={{ headerShown: true, title: "Search" }} />
+        <Stack.Screen name="insights" options={{ headerShown: true, title: "Spending insights" }} />
         <Stack.Screen name="assistant" options={{ headerShown: true, title: "AI Assistant" }} />
         <Stack.Screen name="my-team" options={{ headerShown: true, title: "My Team" }} />
         <Stack.Screen name="delegation" options={{ headerShown: true, title: "Delegation" }} />

@@ -200,6 +200,13 @@ export const api = {
 
   inbox: () => req("/inbox") as Promise<{ items: InboxItem[] }>,
 
+  /** Quick Search over advances and clearances (search.routes.ts) - role-scoped on the server. */
+  search: (q: string) =>
+    req(`/search?q=${encodeURIComponent(q)}`) as Promise<{
+      advances: { id: string; status: string; type: string | null; requester_id: string; requester_name: string | null; created_at: string }[];
+      claims: { id: string; status: string; type: string | null; claimant_id: string; requester_name: string | null; created_at: string }[];
+    }>,
+
   myAdvances: () => req("/advances?mine=true"),
   myClearances: () => req("/claims?mine=true"),
   advanceDetail: (id: string) => req(`/advances/${id}`),
@@ -210,6 +217,9 @@ export const api = {
     req(`/advances/${id}/approve`, { method: "POST", body: JSON.stringify({ approved_total, comments }) }),
   rejectAdvance: (id: string, comments: string) =>
     req(`/advances/${id}/reject`, { method: "POST", body: JSON.stringify({ comments }) }),
+
+  /** Requester nudges the current approver(s) by email (advances.routes.ts POST /:id/remind). */
+  remindAdvance: (id: string) => req(`/advances/${id}/remind`, { method: "POST", body: JSON.stringify({}) }) as Promise<{ message?: string }>,
 
   approveClaim: (id: string, comments?: string) =>
     req(`/claims/${id}/approve`, { method: "POST", body: JSON.stringify({ comments }) }),
