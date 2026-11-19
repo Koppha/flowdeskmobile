@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useRouter, type Href } from "expo-router";
 import {
   BarChart3, Briefcase, Calendar, ChevronRight, Search, CheckCircle2, CircleHelp, ClipboardList, Clock3, FileSignature, GitBranch, LayoutGrid, Megaphone, MessageCircle,
   Radio, ShieldCheck, Sparkles, Truck, UserCheck, Users, Wrench, type LucideIcon
@@ -28,7 +28,7 @@ const MODULE_DEFS: {
   icon: LucideIcon;
   color: keyof Colors;
   bg: keyof Colors;
-  route?: "/my-advances" | "/my-clearances" | "/sign" | "/maintenance" | "/custom-processes" | "/my-team" | "/delegation";
+  route?: Href;
   /** Only these roles see the tile (in addition to the admin switch). */
   roles?: string[];
   /** Also shown, whatever the role, to anyone on a workflow step that allows delegation. */
@@ -36,8 +36,9 @@ const MODULE_DEFS: {
 }[] = [
   { key: "advances", label: "Advances", icon: ClipboardList, color: "accent", bg: "accentSoft", route: "/my-advances" },
   { key: "clearances", label: "Clearances", icon: CheckCircle2, color: "good", bg: "goodSoft", route: "/my-clearances" },
-  { key: "overtime", label: "Overtime", icon: Clock3, color: "warn", bg: "warnSoft" },
-  { key: "standby", label: "Standby", icon: Radio, color: "info", bg: "infoSoft" },
+  // Server-built screens (mobile-web), opened by name like Profile's.
+  { key: "overtime", label: "Overtime", icon: Clock3, color: "warn", bg: "warnSoft", route: { pathname: "/web", params: { go: "overtime" } } },
+  { key: "standby", label: "Standby", icon: Radio, color: "info", bg: "infoSoft", route: { pathname: "/web", params: { go: "standby" } } },
   { key: "customProcesses", label: "Custom Processes", icon: GitBranch, color: "purple", bg: "purpleSoft", route: "/custom-processes" },
   { key: "signADocument", label: "Sign a Document", icon: FileSignature, color: "accent", bg: "accentSoft", route: "/sign" },
   { key: "maintenance", label: "Maintenance", icon: Wrench, color: "warn", bg: "warnSoft", route: "/maintenance" },

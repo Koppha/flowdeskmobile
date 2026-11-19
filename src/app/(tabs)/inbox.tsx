@@ -10,6 +10,14 @@ import { isDocTypeEnabled, mergeModules } from "@/lib/mobile-modules";
 import { useLayout } from "@/components/layout";
 import { layout, makeStyles, radii, spacing, useTheme, type Colors } from "@/theme";
 
+// Doc types whose screens are the server page's Overtime / Standby (/web?go=...).
+const HR_SCREENS: Record<string, { go: string; kind: string }> = {
+  OVERTIME_REQUEST: { go: "overtime", kind: "Overtime request" },
+  OVERTIME_CLAIM: { go: "overtime", kind: "Overtime claim" },
+  STANDBY_CLAIM: { go: "standby", kind: "Standby claim" },
+  STANDBY_CALLOUT: { go: "standby", kind: "Standby call-out" }
+};
+
 function itemMeta(item: InboxItem, colors: Colors) {
   if (item.doc_type === "ADVANCE") {
     return {
@@ -54,6 +62,18 @@ function itemMeta(item: InboxItem, colors: Colors) {
       subtitle: item.preview || item.task_label,
       amount: null as string | null,
       kindColor: colors.info
+    };
+  }
+  // Overtime and Standby aren't in the typed union yet - the server page handles them.
+  const hr = HR_SCREENS[item.doc_type as string];
+  if (hr) {
+    const any = item as any;
+    return {
+      kind: hr.kind,
+      title: any.requester_name || any.claimant_name || any.employee_name || hr.kind,
+      subtitle: item.current_step_position_name || item.status,
+      amount: null as string | null,
+      kindColor: colors.warn
     };
   }
   const assigneeOnly = item.is_assignee_task && !item.current_step_actionable_by_me;
@@ -267,6 +287,8 @@ export default function InboxScreen() {
                         ? router.push({ pathname: "/web", params: { go: "support" } })
                         : item.doc_type === "CUSTOM_REQUEST"
                           ? router.push({ pathname: "/custom-processes", params: { req: item.id } })
+                          : HR_SCREENS[item.doc_type as string]
+                          ? router.push({ pathname: "/web", params: { go: HR_SCREENS[item.doc_type as string].go } })
                           : router.push({ pathname: "/item/[id]", params: { id: item.id, docType: item.doc_type, name: meta.title } })
                 }
               >
