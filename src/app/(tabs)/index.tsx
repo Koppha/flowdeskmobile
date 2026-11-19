@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   Briefcase, Calendar, CheckCircle2, CircleHelp, ClipboardList, Clock3, FileSignature, GitBranch, LayoutGrid, Megaphone, MessageCircle,
@@ -145,7 +145,13 @@ export default function HomeScreen() {
               label={m.label}
               iconColor={colors[m.color]}
               iconBg={colors[m.bg]}
-              onPress={m.route ? () => router.push(m.route!) : undefined}
+              // A tile with no screen in the app yet still answers a tap -
+              // a dead tile reads as the app not responding.
+              onPress={
+                m.route
+                  ? () => router.push(m.route!)
+                  : () => Alert.alert(m.label, `${m.label} isn't in the app yet. Use the FlowDesk portal for now.`)
+              }
             />
           ))}
           {webTiles.map((t) => {
