@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { useFocusEffect, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronRight } from "lucide-react-native";
 import { api, type InboxItem } from "@/lib/api";
 import { fmtMoney, formatWhen } from "@/lib/request-forms";
@@ -57,6 +58,7 @@ function itemMeta(item: InboxItem, colors: Colors) {
 
 export default function InboxScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useStyles();
   const router = useRouter();
   const [items, setItems] = useState<InboxItem[]>([]);
@@ -128,7 +130,7 @@ export default function InboxScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, padX]}>
+      <View style={[styles.header, padX, { paddingTop: insets.top + spacing.xl }]}>
         <Text style={styles.title}>Inbox</Text>
         {!loading && <Text style={styles.subtitle}>{items.length} item{items.length === 1 ? "" : "s"} need your attention</Text>}
       </View>

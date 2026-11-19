@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
 import { BellRing, ChevronRight, CircleHelp, Fingerprint, KeyRound, LogOut, Mail, PenLine, Phone, ScanFace } from "lucide-react-native";
 import { useFocusEffect, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/lib/api";
 import { enableNotifications } from "@/lib/notifications";
 import { useAuth } from "@/context/auth-context";
@@ -34,6 +35,7 @@ function initials(fullName: string) {
 
 export default function ProfileScreen() {
   const { colors, preference: theme, setPreference: setTheme } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useStyles();
   const { user, logout } = useAuth();
   const method = useUnlockMethod();
@@ -125,7 +127,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.screen}>
-      <View style={[styles.header, padX]}>
+      <View style={[styles.header, padX, { paddingTop: insets.top + spacing.xxl }]}>
         <View style={styles.avatar}>
           <Text style={styles.avatarLabel}>{initials(user?.fullName || "")}</Text>
         </View>

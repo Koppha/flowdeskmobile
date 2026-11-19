@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAvoider, KeyboardScrollView } from "@/components/keyboard";
 import { Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
@@ -8,6 +9,7 @@ import { makeStyles, radii, spacing, useTheme } from "@/theme";
 
 export default function LoginScreen() {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useStyles();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
@@ -36,7 +38,7 @@ export default function LoginScreen() {
   return (
     // Android is edge-to-edge, so adjustResize no longer shrinks the window — pad on both platforms.
     <KeyboardAvoider style={styles.screen}>
-      <KeyboardScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <KeyboardScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 16 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={styles.center}>
         <View style={isDark ? styles.logoBackdrop : undefined}>
         <Image source={require("../../assets/econet-logo.png")} style={[styles.logo, isDark && styles.logoInBackdrop]} resizeMode="contain" />
@@ -102,7 +104,7 @@ export default function LoginScreen() {
 
 const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.surface },
-  scroll: { flexGrow: 1, paddingHorizontal: 28, paddingTop: 64, paddingBottom: 32 },
+  scroll: { flexGrow: 1, paddingHorizontal: 28, paddingBottom: 32 },
   center: { flex: 1, width: "100%", maxWidth: 420, alignSelf: "center", alignItems: "center", justifyContent: "center", paddingBottom: 24 },
   logo: { height: 40, width: 160, marginBottom: 22 },
   logoInBackdrop: { marginBottom: 0 },

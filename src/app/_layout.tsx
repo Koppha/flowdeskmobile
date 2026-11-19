@@ -69,7 +69,7 @@ function RootNavigation() {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false, headerBackButtonDisplayMode: "minimal" }}>
         <Stack.Screen name="login" />
         <Stack.Screen name="unlock" />
         <Stack.Screen name="push-permission" />

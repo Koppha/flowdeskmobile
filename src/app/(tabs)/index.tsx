@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Briefcase, Calendar, CheckCircle2, CircleHelp, ClipboardList, Clock3, FileSignature, GitBranch, LayoutGrid, Megaphone, MessageCircle,
   Radio, ShieldCheck, Sparkles, Truck, UserCheck, Users, Wrench, type LucideIcon
@@ -46,6 +47,7 @@ const MODULE_DEFS: {
 
 export default function HomeScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useStyles();
   const { user } = useAuth();
   const router = useRouter();
@@ -106,7 +108,7 @@ export default function HomeScreen() {
       style={styles.screen}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
     >
-      <View style={[styles.header, padX]}>
+      <View style={[styles.header, padX, { paddingTop: insets.top + spacing.xxl }]}>
         <View style={styles.brandRow}>
           <View style={styles.brandMark} />
           <Text style={styles.brandLabel}>FlowDesk</Text>
