@@ -20,6 +20,7 @@ const WEB_TILE_ICONS: Record<string, LucideIcon> = {
   radio: Radio, "git-branch": GitBranch, grid: LayoutGrid, briefcase: Briefcase, calendar: Calendar, truck: Truck, users: Users,
   "shield-check": ShieldCheck, megaphone: Megaphone, help: CircleHelp, "message-circle": MessageCircle
 };
+const NATIVE_WEB_GOS = new Set(["custom-processes", "overtime", "standby"]);
 const TILE_COLORS: (keyof Colors)[] = ["accent", "good", "warn", "bad", "info", "purple"];
 
 const MODULE_DEFS: {
@@ -130,7 +131,14 @@ export default function HomeScreen() {
         });
       }
       setWeek(lines);
-      setWebTiles(Array.isArray(configRes?.webTiles) ? configRes.webTiles.filter((t) => /^[a-z0-9-]{1,40}$/.test(t.go) && t.label) : []);
+      // The server also sends tiles for Custom Processes / Overtime / Standby so
+      // older builds (whose own tiles went nowhere) can reach them; this build
+      // opens those natively, so skip the duplicates.
+      setWebTiles(
+        Array.isArray(configRes?.webTiles)
+          ? configRes.webTiles.filter((t) => /^[a-z0-9-]{1,40}$/.test(t.go) && t.label && !NATIVE_WEB_GOS.has(t.go))
+          : []
+      );
     } catch {
       // Home's stats/module list are a convenience, not critical - leave
       // stats blank and fall back to defaults rather than blocking the
