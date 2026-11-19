@@ -3,13 +3,17 @@ import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { KeyboardAvoider, KeyboardScrollView } from "@/components/keyboard";
 import { Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
+import { MfaSignIn } from "@/components/Mfa";
+import type { MfaStep } from "@/lib/api";
 import { useUnlockMethod } from "@/lib/biometrics";
 import { makeStyles, radii, spacing, useTheme } from "@/theme";
 
 export default function LoginScreen() {
   const { colors, isDark } = useTheme();
   const styles = useStyles();
-  const { login } = useAuth();
+  const { login, finishLogin } = useAuth();
+  // Password OK, two-step sign-in still to do (components/Mfa.tsx).
+  const [mfaStep, setMfaStep] = useState<MfaStep | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -25,7 +29,11 @@ export default function LoginScreen() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email.trim(), password);
+      const step = await login(email.trim(), password);
+      if (step) {
+        setMfaStep(step);
+        setPassword("");
+      }
     } catch (e: any) {
       setError(e?.message || "Sign in failed. Check your details and try again.");
     } finally {
@@ -45,6 +53,10 @@ export default function LoginScreen() {
         <Text style={styles.title}>Welcome back</Text>
         <Text style={styles.subtitle}>Sign in to continue to FlowDesk</Text>
 
+        {mfaStep ? (
+          <MfaSignIn step={mfaStep} onSignedIn={finishLogin} onCancel={() => setMfaStep(null)} />
+        ) : (
+        <>
         <View style={styles.form}>
           <TextInput
             value={email}
@@ -92,6 +104,8 @@ export default function LoginScreen() {
             ? "Set up a screen lock on this phone and FlowDesk will unlock with it next time."
             : `First sign-in on this device. Next time, you'll unlock with your ${method?.label ?? "fingerprint or PIN"} instead.`}
         </Text>
+        </>
+        )}
       </View>
 
       <Text style={styles.disclaimer}>This is a secure system. Unauthorised access is prohibited.</Text>

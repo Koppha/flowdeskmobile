@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
-import { api, setUnauthorizedHandler } from "@/lib/api";
+import { api, setUnauthorizedHandler, type MfaStep } from "@/lib/api";
 import { clearToken, getToken, setToken as storeToken } from "@/lib/secure-storage";
 import { decodeUserFromToken, type FlowDeskUser } from "@/lib/jwt";
 import { authenticate, getAutoLockMs, getUnlockMethod, isAuthPromptActive, isQuickUnlockEnabled } from "@/lib/biometrics";
@@ -35,7 +35,9 @@ type AuthContextValue = {
   profileComplete: boolean;
   /** Complete your profile saved: switch to the new token (it carries the name and department). */
   profileSaved: (token: string) => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  /** Signs in, or returns the two-step sign-in still to do (then finishLogin with its token). */
+  login: (email: string, password: string) => Promise<MfaStep | null>;
+  finishLogin: (token: string) => Promise<void>;
   unlock: () => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
 };
@@ -135,8 +137,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function login(email: string, password: string) {
-    const { token } = await api.login(email, password);
+  async function login(email: string, password: string): Promise<MfaStep | null> {
+    const r = await api.login(email, password);
+    if (r.mfa) return r;
+    await finishLogin(r.token);
+    return null;
+  }
+
+  async function finishLogin(token: string) {
     await storeToken(token);
     await checkProfile();
     setUser(decodeUserFromToken(token));
@@ -170,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo(
-    () => ({ status, user, justLoggedIn, sessionLocked, profileComplete, profileSaved, login, unlock, logout }),
+    () => ({ status, user, justLoggedIn, sessionLocked, profileComplete, profileSaved, login, finishLogin, unlock, logout }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [status, user, justLoggedIn, sessionLocked, profileComplete]
   );

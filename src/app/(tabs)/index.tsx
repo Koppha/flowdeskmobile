@@ -3,7 +3,7 @@ import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   Briefcase, Calendar, CheckCircle2, CircleHelp, ClipboardList, Clock3, FileSignature, GitBranch, LayoutGrid, Megaphone, MessageCircle,
-  Radio, ShieldCheck, Sparkles, Truck, UserCheck, Users, Wrench, type LucideIcon
+  Radio, ShieldAlert, ShieldCheck, Sparkles, Truck, UserCheck, Users, Wrench, type LucideIcon
 } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
 import { api, DELEGATING_ROLES, TEAM_ROLES, type InboxItem, type ModuleKey, type WebTile } from "@/lib/api";
@@ -62,9 +62,12 @@ export default function HomeScreen() {
   // Delegation isn't only for managers: anyone assigned to a workflow step
   // that allows delegation may delegate it (same rule as the portal's menu).
   const [delegationEligible, setDelegationEligible] = useState(false);
+  // Portal sign-ins waiting for this phone's OK (two-step sign-in) - in case the push was missed.
+  const [pendingSignIns, setPendingSignIns] = useState(0);
   const role = user?.role || "";
 
   const load = useCallback(async () => {
+    api.mfaPending().then((r) => setPendingSignIns(r.items.length)).catch(() => setPendingSignIns(0));
     api.assistantStatus().then((s) => setAssistantReady(Boolean(s?.configured))).catch(() => setAssistantReady(false));
     if (!DELEGATING_ROLES.includes(role)) {
       api.delegationEligibility().then((r) => setDelegationEligible(Boolean(r?.eligible))).catch(() => setDelegationEligible(false));
@@ -116,6 +119,15 @@ export default function HomeScreen() {
         <Text style={styles.greeting}>Good afternoon, {firstName}</Text>
         <Text style={styles.subGreeting}>Here&apos;s what&apos;s moving today</Text>
         <UpdateBanner />
+        {pendingSignIns > 0 && (
+          <TouchableOpacity style={styles.signInCard} onPress={() => router.push("/approve-sign-in")} accessibilityRole="button">
+            <ShieldAlert size={20} color={colors.warn} />
+            <View style={styles.signInText}>
+              <Text style={styles.signInTitle}>Approve your FlowDesk sign-in</Text>
+              <Text style={styles.signInHint}>Someone is signing in to the portal as you. Tap to approve or deny.</Text>
+            </View>
+          </TouchableOpacity>
+        )}
         {assistantReady && (
           <TouchableOpacity style={styles.askBar} onPress={() => router.push("/assistant")} accessibilityRole="button">
             <Sparkles size={18} color={colors.accent} />
@@ -176,6 +188,10 @@ const useStyles = makeStyles((colors) => ({
   greeting: { marginTop: 12, fontSize: 22, fontWeight: "700", color: colors.ink },
   subGreeting: { fontSize: 13, color: colors.muted, marginTop: 2 },
   askBar: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md, paddingVertical: 11, paddingHorizontal: 14, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.accentSoft },
+  signInCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.md, padding: spacing.md, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.warn, backgroundColor: colors.warnSoft },
+  signInText: { flex: 1 },
+  signInTitle: { fontSize: 14, fontWeight: "700", color: colors.ink },
+  signInHint: { fontSize: 12.5, color: colors.muted, marginTop: 2 },
   askText: { fontSize: 14, color: colors.muted, flex: 1 },
   statsRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
   statCard: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, padding: spacing.md },

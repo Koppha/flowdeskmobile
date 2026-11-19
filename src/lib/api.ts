@@ -44,6 +44,8 @@ export async function clientHeaders(): Promise<Record<string, string>> {
   // which release.
   headers["X-Flowdesk-App-Version"] = Constants.expoConfig?.version ?? "";
   headers["X-Flowdesk-Platform"] = Platform.OS;
+  // This build handles two-step sign-in (older builds are told to update instead).
+  headers["X-Flowdesk-Mfa"] = "1";
   // The phone, for the admin Analytics "devices in use" (backend mobileAppUsage.ts).
   if (Device.modelName) headers["X-Flowdesk-Device-Model"] = Device.modelName;
   if (Device.brand || Device.manufacturer) headers["X-Flowdesk-Device-Brand"] = (Device.brand || Device.manufacturer) as string;
@@ -78,6 +80,11 @@ async function req(path: string, options: RequestInit = {}) {
   }
   return json;
 }
+
+/** /auth/login with two-step sign-in on: a code (or recovery code) is needed, or the authenticator must be set up first. */
+export type MfaStep = { mfa: "required" | "setup"; challenge: string; phoneApproval?: boolean };
+export type MfaStatus = { enabled: boolean; enabledAt: string | null; required: boolean; recoveryCodesLeft: number; phoneApproval: boolean };
+export type MfaPending = { id: string; client: string; ip: string | null; user_agent: string | null; created_at: string; expires_at: string };
 
 export type AdvanceInboxItem = {
   doc_type: "ADVANCE";
@@ -195,8 +202,23 @@ export type AssistantStatus = {
 };
 
 export const api = {
+  /** A session, or the two-step sign-in still to do (MfaStep). */
   login: (email: string, password: string) =>
-    req("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }) as Promise<{ token: string }>,
+    req("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }) as Promise<{ token: string; mfa?: undefined } | MfaStep>,
+
+  // Two-step sign-in (backend lib/mfa.ts, components/Mfa.tsx).
+  mfaVerify: (challenge: string, code: string) =>
+    req("/auth/mfa/verify", { method: "POST", body: JSON.stringify({ challenge, code }) }) as Promise<{ token: string; usedRecoveryCode?: boolean }>,
+  mfaSetupStart: (challenge?: string) =>
+    req("/auth/mfa/setup/start", { method: "POST", body: JSON.stringify(challenge ? { challenge } : {}) }) as Promise<{ secret: string; otpauthUrl: string }>,
+  mfaSetupConfirm: (code: string, challenge?: string) =>
+    req("/auth/mfa/setup/confirm", { method: "POST", body: JSON.stringify(challenge ? { code, challenge } : { code }) }) as Promise<{ recoveryCodes: string[]; token?: string }>,
+  mfaStatus: () => req("/auth/mfa/status") as Promise<MfaStatus>,
+  mfaRecoveryCodes: (code: string) => req("/auth/mfa/recovery-codes", { method: "POST", body: JSON.stringify({ code }) }) as Promise<{ recoveryCodes: string[] }>,
+  mfaDisable: (code: string) => req("/auth/mfa/disable", { method: "POST", body: JSON.stringify({ code }) }),
+  /** Portal sign-ins waiting for this phone's approval. */
+  mfaPending: () => req("/auth/mfa/pending") as Promise<{ items: MfaPending[] }>,
+  mfaDecide: (id: string, approve: boolean) => req(`/auth/mfa/approvals/${id}`, { method: "POST", body: JSON.stringify({ approve }) }),
 
   inbox: () => req("/inbox") as Promise<{ items: InboxItem[] }>,
 

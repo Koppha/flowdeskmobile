@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from "react";
-import { ActivityIndicator, Dimensions, StyleSheet, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Dimensions, StyleSheet, Text, View } from "react-native";
+import { ShieldAlert } from "lucide-react-native";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -10,6 +11,7 @@ import { AuthProvider, useAuth } from "@/context/auth-context";
 import UnlockPanel from "@/components/UnlockPanel";
 import PhonePrompt from "@/components/PhonePrompt";
 import { useNotificationRouting } from "@/lib/notifications";
+import { isCompromisedDevice } from "@/lib/device-integrity";
 import { ThemeProvider as AppThemeProvider, layout, makeStyles, useTheme, type Colors } from "@/theme";
 
 // Tablets rotate freely; phones stay portrait. Judged by the physical
@@ -88,6 +90,8 @@ function RootNavigation() {
         <Stack.Screen name="custom-processes" options={{ headerShown: true, title: "Custom Processes" }} />
         <Stack.Screen name="web" options={{ headerShown: true, title: "" }} />
         <Stack.Screen name="feedback" options={{ headerShown: true, title: "Leave feedback" }} />
+        <Stack.Screen name="approve-sign-in" options={{ headerShown: true, title: "Approve sign-in" }} />
+        <Stack.Screen name="two-step" options={{ headerShown: true, title: "Two-step sign-in" }} />
         <Stack.Screen name="assistant" options={{ headerShown: true, title: "AI Assistant" }} />
         <Stack.Screen name="my-team" options={{ headerShown: true, title: "My Team" }} />
         <Stack.Screen name="delegation" options={{ headerShown: true, title: "Delegation" }} />
@@ -109,15 +113,50 @@ function RootNavigation() {
   );
 }
 
+// Rooted / jailbroken phones stop here, before sign-in loads a session or
+// calls the API (lib/device-integrity.ts).
+function DeviceGate({ children }: { children: React.ReactNode }) {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const [state, setState] = useState<"checking" | "ok" | "blocked">("checking");
+
+  useEffect(() => {
+    isCompromisedDevice().then((bad) => setState(bad ? "blocked" : "ok"));
+  }, []);
+
+  if (state === "checking") {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={colors.accent} size="large" />
+      </View>
+    );
+  }
+  if (state === "blocked") {
+    return (
+      <View style={styles.blocked} accessibilityRole="alert">
+        <ShieldAlert size={48} color={colors.bad} strokeWidth={1.6} />
+        <Text style={styles.blockedTitle}>FlowDesk can&apos;t run on this phone</Text>
+        <Text style={styles.blockedText}>
+          This phone is rooted or jailbroken, so FlowDesk can&apos;t keep your account and approvals safe on it.
+        </Text>
+        <Text style={styles.blockedText}>Use FlowDesk on an unmodified phone, or on the web portal.</Text>
+      </View>
+    );
+  }
+  return <>{children}</>;
+}
+
 function ThemedApp() {
   const { colors, isDark } = useTheme();
   const navTheme = useMemo(() => navigationTheme(colors, isDark), [colors, isDark]);
   return (
     <ThemeProvider value={navTheme}>
       <StatusBar style={isDark ? "light" : "dark"} />
-      <AuthProvider>
-        <RootNavigation />
-      </AuthProvider>
+      <DeviceGate>
+        <AuthProvider>
+          <RootNavigation />
+        </AuthProvider>
+      </DeviceGate>
     </ThemeProvider>
   );
 }
@@ -137,5 +176,8 @@ export default function RootLayout() {
 const styles = StyleSheet.create({ fill: { flex: 1 } });
 
 const useStyles = makeStyles((colors) => ({
-  loading: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface }
+  loading: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
+  blocked: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 32, backgroundColor: colors.surface },
+  blockedTitle: { fontSize: 19, fontWeight: "700", color: colors.ink, textAlign: "center", marginTop: 8 },
+  blockedText: { fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: "center" }
 }));
