@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { Alert, Platform } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 
@@ -92,6 +92,37 @@ export async function getAutoLockMs(): Promise<number> {
 
 export async function setAutoLockMs(ms: number): Promise<void> {
   await SecureStore.setItemAsync(AUTO_LOCK_KEY, String(ms));
+}
+
+// Per-device preference, on by default: an approval (single, swipe or
+// several at once) asks for the phone's biometrics/PIN first, so a phone
+// left unlocked on a desk can't approve money.
+const CONFIRM_APPROVALS_KEY = "flowdesk.confirmApprovals";
+
+export async function isApprovalConfirmEnabled(): Promise<boolean> {
+  try {
+    return (await SecureStore.getItemAsync(CONFIRM_APPROVALS_KEY)) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+export async function setApprovalConfirmEnabled(enabled: boolean): Promise<void> {
+  await SecureStore.setItemAsync(CONFIRM_APPROVALS_KEY, enabled ? "1" : "0");
+}
+
+/**
+ * Before an approval goes out: true when it may proceed. Asks for the
+ * phone's biometrics/PIN when that's switched on; a phone with no screen
+ * lock can't confirm, so it proceeds as before rather than blocking work.
+ */
+export async function confirmApproval(promptMessage: string): Promise<boolean> {
+  if (!(await isApprovalConfirmEnabled())) return true;
+  const method = await getUnlockMethod().catch(() => null);
+  if (!method || method.kind === "none") return true;
+  const result = await authenticate(promptMessage);
+  if (!result.ok && result.error) Alert.alert("Not approved", result.error);
+  return result.ok;
 }
 
 /** The device's unlock method for labels/icons; null until known. */

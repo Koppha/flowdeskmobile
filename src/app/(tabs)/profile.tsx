@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, ScrollView, Share, Switch, Text, TouchableOpacity, View } from "react-native";
-import { BellRing, ChevronRight, CircleHelp, Fingerprint, KeyRound, LogOut, Mail, MessageSquareHeart, PenLine, Phone, ScanFace, Share2 } from "lucide-react-native";
+import { BellRing, ChevronRight, CircleHelp, Fingerprint, KeyRound, LogOut, Mail, MessageSquareHeart, PenLine, Phone, ScanFace, Share2, ShieldCheck } from "lucide-react-native";
 import Constants from "expo-constants";
 import { useFocusEffect, useRouter } from "expo-router";
 import { api } from "@/lib/api";
@@ -11,7 +11,9 @@ import {
   authenticate,
   capitalize,
   getAutoLockMs,
+  isApprovalConfirmEnabled,
   isQuickUnlockEnabled,
+  setApprovalConfirmEnabled,
   setAutoLockMs,
   setQuickUnlockEnabled,
   useUnlockMethod
@@ -56,6 +58,7 @@ export default function ProfileScreen() {
   const method = useUnlockMethod();
   const [quickUnlock, setQuickUnlock] = useState<boolean | null>(null);
   const [lockAfter, setLockAfter] = useState<string | null>(null);
+  const [confirmApprovals, setConfirmApprovals] = useState<boolean | null>(null);
   const [notify, setNotify] = useState<{ email: boolean; push: boolean } | null>(null);
   const [notifyError, setNotifyError] = useState<string | null>(null);
   // undefined = still loading; "" = none on file.
@@ -72,6 +75,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     isQuickUnlockEnabled().then(setQuickUnlock).catch(() => setQuickUnlock(true));
+    isApprovalConfirmEnabled().then(setConfirmApprovals).catch(() => setConfirmApprovals(true));
     getAutoLockMs().then((ms) => setLockAfter(String(ms)));
     api
       .notificationPrefs()
@@ -102,6 +106,19 @@ export default function ProfileScreen() {
       setNotify(previous);
       setNotifyError("Couldn't save - check your connection and try again.");
     }
+  }
+
+  async function changeConfirmApprovals(next: boolean) {
+    // Turning the check off is itself checked - otherwise it guards nothing.
+    if (!next) {
+      const result = await authenticate("Stop confirming approvals");
+      if (!result.ok) {
+        if (result.error) Alert.alert("Confirm approvals", result.error);
+        return;
+      }
+    }
+    await setApprovalConfirmEnabled(next);
+    setConfirmApprovals(next);
   }
 
   async function changeLockAfter(value: string) {
@@ -191,6 +208,22 @@ export default function ProfileScreen() {
               disabled={quickUnlock === null || method === null || noScreenLock}
               trackColor={{ true: colors.accent }}
               accessibilityLabel={`Unlock with ${unlockLabel}`}
+            />
+          </View>
+          <View style={[styles.row, styles.rowBorder]}>
+            <ShieldCheck size={18} color={colors.muted} strokeWidth={1.8} />
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Confirm approvals with {unlockLabel}</Text>
+              <Text style={styles.rowHint}>
+                {noScreenLock ? "Set up a screen lock in your phone's settings to use this." : "Asks it's you before anything is approved from this phone."}
+              </Text>
+            </View>
+            <Switch
+              value={Boolean(confirmApprovals) && !noScreenLock}
+              onValueChange={changeConfirmApprovals}
+              disabled={confirmApprovals === null || method === null || noScreenLock}
+              trackColor={{ true: colors.accent }}
+              accessibilityLabel={`Confirm approvals with ${unlockLabel}`}
             />
           </View>
           {quickUnlock && !noScreenLock && (

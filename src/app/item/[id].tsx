@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { api } from "@/lib/api";
+import { confirmApproval } from "@/lib/biometrics";
 import { fmtMoney, formatWhen } from "@/lib/request-forms";
 import { statusLabel, toneFor } from "@/lib/status";
 import StatusPill from "@/components/StatusPill";
@@ -43,6 +44,7 @@ export default function ItemDetailScreen() {
 
   async function handleApprove() {
     setError(null);
+    if (!(await confirmApproval("Approve this request"))) return;
     setSubmitting(true);
     try {
       if (docType === "CLAIM") await api.approveClaim(id, comment || undefined);
