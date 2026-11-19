@@ -5,7 +5,7 @@ import { CheckSquare, Square } from "lucide-react-native";
 import { useAuth } from "@/context/auth-context";
 import { api } from "@/lib/api";
 import { DELEGATION_TYPES } from "@/lib/delegations";
-import { todayIso } from "@/lib/request-forms";
+import { addDays, todayIso } from "@/lib/request-forms";
 import { DateInput, Field, Input, PrimaryButton, Section, Select, type SelectOption, useFormStyles } from "@/components/form";
 import { useLayout } from "@/components/layout";
 import { KeyboardAvoider, KeyboardScrollView } from "@/components/keyboard";
@@ -15,6 +15,21 @@ import { makeStyles, spacing, useTheme } from "@/theme";
 // /auth/delegations). The delegate list comes from /delegations/candidates,
 // i.e. only people the server would accept (same department or section,
 // same division for division heads, anyone for the CEO).
+
+// Out-of-office in one tap: common absences, ending on a working day's eve.
+function awayPresets(today: string): { key: string; label: string; to: string }[] {
+  const d = new Date(`${today}T12:00:00`);
+  const dow = d.getDay(); // 0 Sun .. 6 Sat
+  const toFriday = (5 - dow + 7) % 7;
+  const friday = addDays(today, toFriday);
+  const nextMonday = addDays(today, ((8 - dow) % 7) || 7);
+  return [
+    { key: "today", label: "Today", to: today },
+    { key: "week", label: "Rest of this week", to: friday },
+    { key: "nextweek", label: "Next week", to: addDays(nextMonday, 4) },
+    { key: "2weeks", label: "2 weeks", to: addDays(today, 13) }
+  ];
+}
 
 export default function NewDelegationScreen() {
   const { colors } = useTheme();
@@ -35,6 +50,9 @@ export default function NewDelegationScreen() {
   const [types, setTypes] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preset, setPreset] = useState<string | null>(null);
+  // Who covered for me last time - most people hand over to the same colleague.
+  const [lastDelegate, setLastDelegate] = useState<{ id: string; name: string; types: string[] } | null>(null);
 
   useEffect(() => {
     api.delegationCandidates().then(
@@ -49,11 +67,33 @@ export default function NewDelegationScreen() {
       (e: any) => setLoadError(e?.status === 403 ? "You have no approvals to delegate." : e?.message || "Couldn't load the people you can delegate to.")
     );
     api
+      .delegations()
+      .then((all) => {
+        const last = all
+          .filter((d) => d.manager_id === user?.userId)
+          .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+        if (last) setLastDelegate({ id: last.delegate_id, name: last.delegate_name || "your last delegate", types: last.request_types || [] });
+      })
+      .catch(() => {});
+    api
       .requestTypes()
       // Only live processes - drafts can't be submitted, so there's nothing to approve.
       .then((rows) => setCustomTypes((rows || []).filter((r) => r.is_active !== false && r.status === "ACTIVE").map((r) => ({ code: r.code, name: r.name }))))
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function pickPreset(p: { key: string; to: string }) {
+    setPreset(p.key);
+    setFromDate(todayIso());
+    setToDate(p.to);
+    if (!reason.trim()) setReason("Out of office");
+    // Same colleague and scope as last time, if they can still cover.
+    if (!delegateId && lastDelegate && people?.some((x) => x.value === lastDelegate.id)) {
+      setDelegateId(lastDelegate.id);
+      setTypes(lastDelegate.types);
+    }
+  }
 
   const allCustom = types.includes("CUSTOM_WORKFLOW");
   const toggle = (value: string) =>
@@ -120,6 +160,27 @@ export default function NewDelegationScreen() {
   return (
     <KeyboardAvoider style={formStyles.flex}>
       <KeyboardScrollView style={formStyles.screen} contentContainerStyle={[formStyles.content, { paddingHorizontal: gutter() }]} keyboardShouldPersistTaps="handled">
+        <Section title="I'm away">
+          <Text style={[formStyles.muted, { marginBottom: spacing.sm }]}>
+            {lastDelegate && people.some((x) => x.value === lastDelegate.id)
+              ? `Pick how long - ${lastDelegate.name} covers again, like last time. You can change anything below.`
+              : "Pick how long, then choose who covers for you."}
+          </Text>
+          <View style={styles.chips}>
+            {awayPresets(todayIso()).map((p) => (
+              <TouchableOpacity
+                key={p.key}
+                style={[styles.chip, preset === p.key && styles.chipOn]}
+                onPress={() => pickPreset(p)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: preset === p.key }}
+              >
+                <Text style={[styles.chipLabel, preset === p.key && styles.chipLabelOn]}>{p.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Section>
+
         <Section title="Delegate">
           <Field label="Who will approve for you" hint="Only colleagues you're allowed to delegate to are listed.">
             <Select
@@ -137,12 +198,12 @@ export default function NewDelegationScreen() {
           <View style={formStyles.row}>
             <View style={formStyles.flex}>
               <Field label="From">
-                <DateInput value={fromDate} onChange={setFromDate} minimumDate={todayIso()} />
+                <DateInput value={fromDate} onChange={(v) => { setPreset(null); setFromDate(v); }} minimumDate={todayIso()} />
               </Field>
             </View>
             <View style={formStyles.flex}>
               <Field label="To (optional)">
-                <DateInput value={toDate} onChange={setToDate} minimumDate={fromDate || todayIso()} placeholder="Until I end it" />
+                <DateInput value={toDate} onChange={(v) => { setPreset(null); setToDate(v); }} minimumDate={fromDate || todayIso()} placeholder="Until I end it" />
               </Field>
             </View>
           </View>
@@ -183,5 +244,10 @@ export default function NewDelegationScreen() {
 const useStyles = makeStyles((colors) => ({
   check: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 9 },
   checkLabel: { flex: 1, fontSize: 14.5, color: colors.ink },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  chipOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  chipLabel: { fontSize: 13.5, color: colors.ink },
+  chipLabelOn: { color: colors.accent, fontWeight: "700" },
   sub: { marginTop: spacing.sm, paddingLeft: spacing.md, borderLeftWidth: 2, borderLeftColor: colors.border }
 }));
