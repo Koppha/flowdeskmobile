@@ -119,6 +119,8 @@ function urlFor(data: Record<string, unknown> | undefined): string | null {
   if (!data) return null;
   if (typeof data.url === "string") return data.url;
   if (data.type === "MAINTENANCE" && typeof data.id === "string") return `/maintenance?req=${data.id}`;
+  // Two-step sign-in: a portal sign-in to approve on this phone.
+  if (data.type === "MFA_APPROVE" && typeof data.id === "string") return `/approve-sign-in?id=${encodeURIComponent(data.id)}`;
   const { docType, docId } = data;
   if (typeof docId !== "string" || typeof docType !== "string") return null;
   if (docType === "SIGNABLE_DOCUMENT") return `/sign?doc=${docId}`;

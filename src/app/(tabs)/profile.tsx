@@ -190,6 +190,14 @@ export default function ProfileScreen() {
 
         <Text style={styles.sectionLabel}>Security</Text>
         <View style={[styles.card, styles.cardSpacing]}>
+          <TouchableOpacity style={[styles.row, styles.rowDivider]} onPress={() => router.push("/two-step")} accessibilityRole="button">
+            <ShieldCheck size={18} color={colors.muted} strokeWidth={1.8} />
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Two-step sign-in</Text>
+              <Text style={styles.rowHint}>A code from an authenticator app as well as your password</Text>
+            </View>
+            <ChevronRight size={18} color={colors.muted} />
+          </TouchableOpacity>
           <View style={styles.row}>
             <UnlockIcon size={18} color={colors.muted} strokeWidth={1.8} />
             <View style={styles.rowText}>
@@ -380,6 +388,7 @@ const useStyles = makeStyles((colors) => ({
   card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, overflow: "hidden" },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 14, paddingHorizontal: spacing.lg },
   rowBorder: { borderTopWidth: 1, borderTopColor: colors.border },
+  rowDivider: { borderBottomWidth: 1, borderBottomColor: colors.border },
   devLabel: { marginTop: spacing.lg },
   versionNote: { textAlign: "center", marginTop: spacing.sm },
   rowLabel: { flex: 1, fontSize: 14, fontWeight: "500", color: colors.ink },
