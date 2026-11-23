@@ -11,7 +11,7 @@ import { makeStyles, radii, spacing, useTheme } from "@/theme";
 export default function LoginScreen() {
   const { colors, isDark } = useTheme();
   const styles = useStyles();
-  const { login, finishLogin } = useAuth();
+  const { login, finishLogin, signedOutReason } = useAuth();
   // Password OK, two-step sign-in still to do (components/Mfa.tsx).
   const [mfaStep, setMfaStep] = useState<MfaStep | null>(null);
   const [email, setEmail] = useState("");
@@ -94,6 +94,7 @@ export default function LoginScreen() {
         </View>
 
         {error && <Text style={styles.error}>{error}</Text>}
+        {!error && signedOutReason && <Text style={styles.notice}>{signedOutReason}</Text>}
 
         <TouchableOpacity style={[styles.button, submitting && styles.buttonDisabled]} onPress={handleSubmit} disabled={submitting}>
           <Text style={styles.buttonLabel}>{submitting ? "Signing in…" : "Sign In"}</Text>
@@ -138,6 +139,7 @@ const useStyles = makeStyles((colors) => ({
   passwordWrap: { width: "100%", justifyContent: "center" },
   passwordInput: { paddingRight: 48 },
   eye: { position: "absolute", right: 0, top: 0, bottom: 0, width: 48, alignItems: "center", justifyContent: "center" },
+  notice: { color: colors.muted, fontSize: 12.5, marginTop: spacing.md, textAlign: "center", lineHeight: 18 },
   error: { color: colors.bad, fontSize: 12.5, marginTop: spacing.md, textAlign: "center" },
   button: {
     width: "100%",

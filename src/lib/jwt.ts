@@ -23,6 +23,21 @@ function base64UrlDecode(input: string): string {
   );
 }
 
+/**
+ * Whether a session token has run out (or will within `marginMs`). Sessions
+ * last 12 hours (backend lib/auth.ts signToken); an unreadable token counts
+ * as expired. The server is still the judge - this only avoids showing the
+ * app with a session it will refuse.
+ */
+export function isTokenExpired(token: string, marginMs = 60_000): boolean {
+  try {
+    const exp = Number(JSON.parse(base64UrlDecode(token.split(".")[1])).exp);
+    return !Number.isFinite(exp) || exp * 1000 - marginMs <= Date.now();
+  } catch {
+    return true;
+  }
+}
+
 export function decodeUserFromToken(token: string): FlowDeskUser | null {
   try {
     const payload = token.split(".")[1];

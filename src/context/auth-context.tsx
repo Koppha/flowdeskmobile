@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { AppState } from "react-native";
 import { api, setUnauthorizedHandler, type MfaStep } from "@/lib/api";
 import { clearToken, getToken, setToken as storeToken } from "@/lib/secure-storage";
-import { decodeUserFromToken, type FlowDeskUser } from "@/lib/jwt";
+import { decodeUserFromToken, isTokenExpired, type FlowDeskUser } from "@/lib/jwt";
 import { authenticate, getAutoLockMs, getUnlockMethod, isAuthPromptActive, isQuickUnlockEnabled } from "@/lib/biometrics";
 
 // Matches the FlowDesk Mobile write-up's Auth model:
@@ -39,8 +39,14 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<MfaStep | null>;
   finishLogin: (token: string) => Promise<void>;
   unlock: () => Promise<{ ok: boolean; error?: string }>;
+  /** Why the person was signed out (an ended session), for the Login screen; null after a normal log out. */
+  signedOutReason: string | null;
   logout: () => Promise<void>;
 };
+
+// Sessions last 12 hours. Fingerprint / face / PIN only unlocks a session the
+// phone still holds - once it has ended, the password is needed again.
+const SESSION_ENDED = "Your session has ended. Sign in with your password to continue - next time you can unlock with your fingerprint again.";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -55,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [justLoggedIn, setJustLoggedIn] = useState(false);
   const [sessionLocked, setSessionLocked] = useState(false);
   const [profileComplete, setProfileComplete] = useState(true);
+  const [signedOutReason, setSignedOutReason] = useState<string | null>(null);
   const statusRef = useRef(status);
   const backgroundedAt = useRef<number | null>(null);
 
@@ -62,7 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     statusRef.current = status;
   }, [status]);
 
-  function signOutLocally() {
+  function signOutLocally(reason: string | null = null) {
+    setSignedOutReason(reason);
     setUser(null);
     setJustLoggedIn(false);
     setSessionLocked(false);
@@ -72,14 +80,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Session expired or revoked server-side: lib/api.ts has already cleared
   // the token, so drop straight back to the Login screen.
   useEffect(() => {
-    setUnauthorizedHandler(signOutLocally);
+    setUnauthorizedHandler(() => signOutLocally(SESSION_ENDED));
     return () => setUnauthorizedHandler(null);
   }, []);
 
   useEffect(() => {
     (async () => {
       const token = await getToken();
-      if (token && (await canKeepSession())) {
+      if (token && isTokenExpired(token)) {
+        // The session ran out while the app was closed: unlocking it would
+        // open an app that can't load anything.
+        await clearToken();
+        signOutLocally(SESSION_ENDED);
+      } else if (token && (await canKeepSession())) {
         setUser(decodeUserFromToken(token));
         setStatus("locked");
       } else {
@@ -128,12 +141,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Complete your profile. If the check itself fails (e.g. offline), the
   // person isn't blocked - the server still refuses requests from an
   // incomplete profile.
-  async function checkProfile() {
+  // Also tells whether the server still accepts the session: "ended" means it
+  // answered 401 (lib/api.ts has then already cleared it and signed out).
+  async function checkProfile(): Promise<"ok" | "ended" | "unknown"> {
     try {
       const me = await api.me();
       setProfileComplete(Boolean(me.profile_completed));
-    } catch {
+      return "ok";
+    } catch (e: any) {
       setProfileComplete(true);
+      return e?.status === 401 ? "ended" : "unknown";
     }
   }
 
@@ -146,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function finishLogin(token: string) {
     await storeToken(token);
+    setSignedOutReason(null);
     await checkProfile();
     setUser(decodeUserFromToken(token));
     setJustLoggedIn(true);
@@ -162,7 +180,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function unlock(): Promise<{ ok: boolean; error?: string }> {
     const result = await authenticate();
     if (result.ok) {
-      if (statusRef.current === "locked") await checkProfile();
+      // Only a session the server still accepts gets the app. Previously an
+      // ended session (over 12 hours old) was signed out by the profile check
+      // and then let in anyway - every screen loaded nothing.
+      const token = await getToken();
+      if (!token || isTokenExpired(token)) {
+        await clearToken();
+        signOutLocally(SESSION_ENDED);
+        return { ok: false };
+      }
+      if ((await checkProfile()) === "ended") return { ok: false };
       setSessionLocked(false);
       setStatus("signedIn");
       // An unlock is a session that never hits /auth/login - report it so the
@@ -178,9 +205,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo(
-    () => ({ status, user, justLoggedIn, sessionLocked, profileComplete, profileSaved, login, finishLogin, unlock, logout }),
+    () => ({ status, user, justLoggedIn, sessionLocked, profileComplete, profileSaved, login, finishLogin, unlock, logout, signedOutReason }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [status, user, justLoggedIn, sessionLocked, profileComplete]
+    [status, user, justLoggedIn, sessionLocked, profileComplete, signedOutReason]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
