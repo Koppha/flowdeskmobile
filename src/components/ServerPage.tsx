@@ -32,6 +32,32 @@ const SHAREABLE = /^\/signatures\/(documents\/)?[0-9a-f-]{36}\/file$/i;
 const SHAREABLE_CUSTOM_PDF = /^\/custom-requests\/[0-9a-f-]{36}\/pdf$/i;
 const SHAREABLE_ATTACHMENT = /^\/custom-requests\/[0-9a-f-]{36}\/attachments\/[0-9a-f-]{36}$/i;
 
+/**
+ * The name the shared file gets: the page's own (e.g. "Computer Request
+ * 1A2B3C4D.pdf", "BRS-2026-014.pdf", the document's title). Saving into a
+ * folder let the server's headers decide instead, and Android ignores
+ * "inline" ones - files came out as "pdf.pdf", "request-<id>.pdf",
+ * "signed-My%20Doc.pdf" or a bare id. Characters file systems reject are
+ * replaced, and a PDF always ends in .pdf.
+ */
+export function shareFileName(title: string, isPdf: boolean) {
+  let name = (title || "")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\.+/, "");
+  if (!name) name = "FlowDesk document";
+  if (isPdf && !/\.pdf$/i.test(name)) name = `${name.replace(/\.$/, "")}.pdf`;
+  // Long names are cut before the extension, so it survives.
+  if (name.length > 120) {
+    const dot = name.lastIndexOf(".");
+    const ext = dot > 0 && name.length - dot <= 10 ? name.slice(dot) : "";
+    name = name.slice(0, 120 - ext.length).trim() + ext;
+  }
+  return name;
+}
+
 async function sharePdf(path: string, title: string, token: string) {
   const isAttachment = SHAREABLE_ATTACHMENT.test(path);
   if (!SHAREABLE.test(path) && !SHAREABLE_CUSTOM_PDF.test(path) && !isAttachment) return;
@@ -43,7 +69,8 @@ async function sharePdf(path: string, title: string, token: string) {
   // already in the cache.
   const dir = new Directory(Paths.cache, "signed", String(Date.now()));
   dir.create({ intermediates: true, idempotent: true });
-  const file = await File.createDownloadTask(`${API}${path}?download=1`, dir, { headers: { Authorization: `Bearer ${token}` } }).downloadAsync();
+  const target = new File(dir, shareFileName(title, !isAttachment));
+  const file = await File.createDownloadTask(`${API}${path}?download=1`, target, { headers: { Authorization: `Bearer ${token}` } }).downloadAsync();
   if (!file) return;
   // An attachment can be anything (photo, Word, Excel): let the share sheet work out its type.
   await Sharing.shareAsync(file.uri, isAttachment ? { dialogTitle: title } : { mimeType: "application/pdf", dialogTitle: title, UTI: "com.adobe.pdf" });
