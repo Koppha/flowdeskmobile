@@ -7,8 +7,8 @@ import * as Sharing from "expo-sharing";
 import * as ImagePicker from "expo-image-picker";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 import { useAuth } from "@/context/auth-context";
-import { API } from "@/lib/api";
-import { getToken } from "@/lib/secure-storage";
+import { API, freshToken, renewSession } from "@/lib/api";
+
 import { makeStyles, spacing, useTheme } from "@/theme";
 
 // Sign a Document and Maintenance are a page served by backend-v2
@@ -110,6 +110,7 @@ export default function ServerPage({ section, docId, requestId, start }: { secti
   const { logout } = useAuth();
   const webRef = useRef<WebView>(null);
   const canGoBack = useRef(false);
+  const renewedForPage = useRef(false);
   const [token, setToken] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -120,7 +121,8 @@ export default function ServerPage({ section, docId, requestId, start }: { secti
   const [pageTitle, setPageTitle] = useState<string | null>(null);
 
   useEffect(() => {
-    void getToken().then(setToken);
+    // Renewed first if it has run out, so the page never opens with a dead session.
+    void freshToken().then(setToken);
   }, []);
 
   // Android back: step back through the page's screens first.
@@ -142,7 +144,18 @@ export default function ServerPage({ section, docId, requestId, start }: { secti
     } catch {
       return;
     }
-    if (msg.type === "sessionExpired") void logout();
+    if (msg.type === "sessionExpired") {
+      // The page's session ran out while open: renew it and reload the page
+      // once; only a refused renewal signs out.
+      if (renewedForPage.current) return void logout();
+      renewedForPage.current = true;
+      void renewSession().then((t) => {
+        if (typeof t === "string") {
+          setToken(t);
+          setAttempt((n) => n + 1);
+        } else void logout();
+      });
+    }
     else if (msg.type === "close") router.back();
     else if (msg.type === "pickPhotos" && typeof msg.id === "string") {
       const id = msg.id;

@@ -1,7 +1,8 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
-import { clearToken, getToken } from "./secure-storage";
+import { clearRefreshToken, clearSession, getRefreshToken, getToken, setRefreshToken, setToken } from "./secure-storage";
+import { isTokenExpired } from "./jwt";
 import type { AssistantChartData } from "./assistant";
 
 // extra.apiUrl comes from app.config.ts: UAT unless the build ran with
@@ -33,9 +34,8 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 // same bearer-token header, same error shape - so the mobile app talks to
 // the identical backend-v2 endpoints the web app already uses, no new API
 // surface (see the FlowDesk Mobile write-up's "How it fits" section).
-/** The headers every call to the backend carries (also used by the AI Assistant's streaming chat). */
-export async function clientHeaders(): Promise<Record<string, string>> {
-  const token = await getToken();
+/** Who's calling (no session) - also what a session renewal sends. */
+function deviceHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   // Lets the backend tell a mobile login apart from a web login for the
   // admin Analytics tab - see auth.routes.ts's trackMobileLoginIfNeeded().
@@ -50,17 +50,98 @@ export async function clientHeaders(): Promise<Record<string, string>> {
   if (Device.modelName) headers["X-Flowdesk-Device-Model"] = Device.modelName;
   if (Device.brand || Device.manufacturer) headers["X-Flowdesk-Device-Brand"] = (Device.brand || Device.manufacturer) as string;
   if (Device.osVersion) headers["X-Flowdesk-OS-Version"] = Device.osVersion;
+  // This build keeps a refresh key, so sign-ins return one (stays signed in).
+  headers["X-Flowdesk-Refresh"] = "1";
+  return headers;
+}
+
+// ── Staying signed in ───────────────────────────────────────────────────────
+// The session token lasts 12 hours; the refresh key buys a new one
+// (POST /auth/refresh) and is replaced each time. One renewal at a time: two
+// screens asking at once share it, since a key works only once.
+let renewing: Promise<string | "ended" | null> | null = null;
+
+/**
+ * A fresh session from the stored refresh key. Returns the new token,
+ * "ended" when the server refuses it (sign in again), or null when it
+ * couldn't be asked (offline) or there's no key.
+ */
+export function renewSession(): Promise<string | "ended" | null> {
+  renewing ??= (async () => {
+    const key = await getRefreshToken();
+    if (!key) return null;
+    try {
+      const res = await fetch(`${API}/auth/refresh`, {
+        method: "POST",
+        headers: { ...deviceHeaders(), Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: key })
+      });
+      if (res.status === 401) {
+        await clearRefreshToken();
+        return "ended";
+      }
+      if (!res.ok) return null;
+      const json = await res.json();
+      if (typeof json?.token !== "string") return null;
+      await setToken(json.token);
+      if (typeof json.refresh_token === "string") await setRefreshToken(json.refresh_token);
+      sessionRenewed?.(json.token);
+      return json.token as string;
+    } catch {
+      return null;
+    }
+  })().finally(() => {
+    renewing = null;
+  });
+  return renewing;
+}
+
+// AuthProvider follows renewals (the token carries the name and role).
+let sessionRenewed: ((token: string) => void) | null = null;
+export function setSessionRenewedHandler(handler: ((token: string) => void) | null) {
+  sessionRenewed = handler;
+}
+
+/** The session token, renewed first if it has run out. The old one if it can't be renewed - the server then says 401. */
+export async function freshToken(): Promise<string | null> {
+  const token = await getToken();
+  if (!token || !isTokenExpired(token)) return token;
+  const renewed = await renewSession();
+  return typeof renewed === "string" ? renewed : token;
+}
+
+/** Log out: the server forgets this phone's refresh key, then everything is wiped here. */
+export async function endSession() {
+  const key = await getRefreshToken();
+  if (key) {
+    // Best effort - logging out never waits on the network.
+    fetch(`${API}/auth/refresh/end`, {
+      method: "POST",
+      headers: { ...deviceHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: key })
+    }).catch(() => {});
+  }
+  await clearSession();
+}
+
+/** The headers every call to the backend carries (also used by the AI Assistant's streaming chat). */
+export async function clientHeaders(): Promise<Record<string, string>> {
+  const headers = deviceHeaders();
+  const token = await freshToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }
 
 /** A 401 on a signed-in call: the session is gone - sign out and go to Login. */
 export async function handleUnauthorized() {
-  await clearToken();
+  await clearSession();
   onUnauthorized?.();
 }
 
-async function req(path: string, options: RequestInit = {}) {
+// Sign-in calls: a 401 there is wrong details, never an ended session.
+const SIGN_IN_PATHS = /^\/auth\/(login|mfa\/|refresh)/;
+
+async function req(path: string, options: RequestInit = {}, retried = false): Promise<any> {
   const base = await clientHeaders();
   const token = base.Authorization;
   const headers: any = { Accept: "application/json", ...(options.headers || {}), ...base };
@@ -69,10 +150,18 @@ async function req(path: string, options: RequestInit = {}) {
 
   const res = await fetch(`${API}${path}`, { ...options, headers });
   const json = await res.json().catch(() => ({}));
+  // A sign-in (password or two-step) hands over the phone's refresh key.
+  if (res.ok && typeof json?.refresh_token === "string") await setRefreshToken(json.refresh_token);
 
   // Only for authenticated calls - a 401 from /auth/login is just wrong
-  // credentials and must surface as an error on the Login screen.
-  if (res.status === 401 && token) await handleUnauthorized();
+  // credentials and must surface as an error on the Login screen. Otherwise
+  // the session may just have run out: renew it once and try again.
+  if (res.status === 401 && token && !SIGN_IN_PATHS.test(path)) {
+    const renewed = retried ? "ended" : await renewSession();
+    if (typeof renewed === "string") return req(path, options, true);
+    // Offline renewal: the error shows, the phone stays signed in.
+    if (renewed === "ended" || !(await getRefreshToken())) await handleUnauthorized();
+  }
   if (!res.ok) {
     const error = new Error(formatApiError(json, res.statusText)) as Error & { status?: number };
     error.status = res.status;

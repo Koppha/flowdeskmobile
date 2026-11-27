@@ -21,3 +21,29 @@ export async function setToken(token: string): Promise<void> {
 export async function clearToken(): Promise<void> {
   await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
+
+// The refresh key (backend lib/mobileSessions.ts): renews the 12-hour session
+// so the app stays signed in. Used only once the app is unlocked.
+const REFRESH_KEY = "flowdesk.refresh";
+
+export async function getRefreshToken(): Promise<string | null> {
+  try {
+    return await SecureStore.getItemAsync(REFRESH_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export async function setRefreshToken(key: string): Promise<void> {
+  await SecureStore.setItemAsync(REFRESH_KEY, key);
+}
+
+export async function clearRefreshToken(): Promise<void> {
+  await SecureStore.deleteItemAsync(REFRESH_KEY).catch(() => {});
+}
+
+/** Everything that keeps this phone signed in. */
+export async function clearSession(): Promise<void> {
+  await clearToken().catch(() => {});
+  await clearRefreshToken();
+}

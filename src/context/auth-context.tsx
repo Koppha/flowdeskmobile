@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
-import { api, setUnauthorizedHandler, type MfaStep } from "@/lib/api";
-import { clearToken, getToken, setToken as storeToken } from "@/lib/secure-storage";
+import { api, endSession, renewSession, setSessionRenewedHandler, setUnauthorizedHandler, type MfaStep } from "@/lib/api";
+import { clearSession, getRefreshToken, getToken, setToken as storeToken } from "@/lib/secure-storage";
 import { decodeUserFromToken, isTokenExpired, type FlowDeskUser } from "@/lib/jwt";
 import { authenticate, getAutoLockMs, getUnlockMethod, isAuthPromptActive, isQuickUnlockEnabled } from "@/lib/biometrics";
 
@@ -44,8 +44,10 @@ type AuthContextValue = {
   logout: () => Promise<void>;
 };
 
-// Sessions last 12 hours. Fingerprint / face / PIN only unlocks a session the
-// phone still holds - once it has ended, the password is needed again.
+// Sessions last 12 hours; the phone's refresh key renews them after an unlock
+// (lib/api.ts renewSession). Only when the server refuses that - logged out
+// elsewhere, signed out by an admin, unused for 30 days - is the password
+// needed again.
 const SESSION_ENDED = "Your session has ended. Sign in with your password to continue - next time you can unlock with your fingerprint again.";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -81,23 +83,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // the token, so drop straight back to the Login screen.
   useEffect(() => {
     setUnauthorizedHandler(() => signOutLocally(SESSION_ENDED));
-    return () => setUnauthorizedHandler(null);
+    // A silent renewal (any screen) brings a new token: keep the name and role current.
+    setSessionRenewedHandler((token) => setUser(decodeUserFromToken(token)));
+    return () => {
+      setUnauthorizedHandler(null);
+      setSessionRenewedHandler(null);
+    };
   }, []);
 
   useEffect(() => {
     (async () => {
       const token = await getToken();
-      if (token && isTokenExpired(token)) {
-        // The session ran out while the app was closed: unlocking it would
-        // open an app that can't load anything.
-        await clearToken();
+      const canRenew = Boolean(await getRefreshToken());
+      if (token && isTokenExpired(token) && !canRenew) {
+        // The session ran out while the app was closed and can't be renewed:
+        // unlocking it would open an app that can't load anything.
+        await clearSession();
         signOutLocally(SESSION_ENDED);
       } else if (token && (await canKeepSession())) {
+        // Expired but renewable: unlock first, then it's renewed.
         setUser(decodeUserFromToken(token));
         setStatus("locked");
       } else {
         // No session, or nothing to protect a remembered one with.
-        if (token) await clearToken();
+        if (token) await clearSession();
         setStatus("signedOut");
       }
     })();
@@ -129,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (keep) {
           setSessionLocked(true);
         } else {
-          await clearToken();
+          await endSession();
           signOutLocally();
         }
       })();
@@ -180,16 +189,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function unlock(): Promise<{ ok: boolean; error?: string }> {
     const result = await authenticate();
     if (result.ok) {
-      // Only a session the server still accepts gets the app. Previously an
-      // ended session (over 12 hours old) was signed out by the profile check
-      // and then let in anyway - every screen loaded nothing.
-      const token = await getToken();
+      // Only a session the server still accepts gets the app (an ended one
+      // used to be let in, and every screen loaded nothing). One that ran
+      // out - the next morning, or from a notification - is renewed with
+      // the refresh key now that the person has proved it's them.
+      let token = await getToken();
       if (!token || isTokenExpired(token)) {
-        await clearToken();
-        signOutLocally(SESSION_ENDED);
-        return { ok: false };
+        const renewed = await renewSession();
+        if (renewed === null && (await getRefreshToken())) {
+          // Couldn't reach FlowDesk: stay on the unlock screen and say so.
+          return { ok: false, error: "Couldn't reach FlowDesk to renew your session. Check your connection and try again." };
+        }
+        if (typeof renewed !== "string") {
+          await clearSession();
+          signOutLocally(SESSION_ENDED);
+          return { ok: false };
+        }
+        token = renewed;
       }
       if ((await checkProfile()) === "ended") return { ok: false };
+      setUser(decodeUserFromToken(token));
       setSessionLocked(false);
       setStatus("signedIn");
       // An unlock is a session that never hits /auth/login - report it so the
@@ -200,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
-    await clearToken();
+    await endSession();
     signOutLocally();
   }
 
